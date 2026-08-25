@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 220" role="img" aria-label="SparkDuet, a Zorost AI Lab project: Local AI 01, two DGX Sparks, four lanes, MIT">
   <defs>
     <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
@@ -7,7 +8,7 @@
   </defs>
   <rect width="1240" height="220" fill="#101418"/>
   <rect x="0" y="0" width="6" height="220" fill="url(#gold)"/>
-  <text x="40" y="42" font-family="Menlo, Consolas, monospace" font-size="13" letter-spacing="2.4" fill="#E8B75B">ZOROST AI LAB  ·  LOCAL AI / 01  ·  OPEN SOURCE  ·  MIT</text>
+  <text x="40" y="42" font-family="Menlo, Consolas, monospace" font-size="13" letter-spacing="2.4" fill="#E8B75B">ZOROST AI LAB  |  LOCAL AI / 01  |  OPEN SOURCE  |  MIT</text>
   <text x="40" y="96" font-family="Helvetica, Arial, sans-serif" font-size="42" font-weight="bold" fill="#F2EFE8">SparkDuet</text>
   <text x="40" y="132" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#C7D0D9">One endpoint, four lanes, honest numbers. The operating layer the Lab runs on its own two-Spark pair daily.</text>
   <rect x="40" y="158" width="1160" height="1" fill="#2A333D"/>
