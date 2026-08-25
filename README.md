@@ -2,6 +2,11 @@
 
 [![SparkDuet, a Zorost AI Lab project](docs/diagrams/sparkduet-lab-header.svg)](https://zorost.com/ai-lab/local-ai/sparkduet)
 
+> **You are on `model/deepseek-v4-flash-0731`, the pinned recipe branch for
+> `deepseek-ai/DeepSeek-V4-Flash-0731`.** Frozen against that checkpoint.
+> For the current flagship and the model-agnostic scaffold, use
+> [`main`](https://github.com/zorost/sparkduet/tree/main).
+
 **( Local AI / 01 )** · Open Source · MIT · a [Zorost AI Lab](https://zorost.com/ai-lab) project
 
 # SparkDuet
