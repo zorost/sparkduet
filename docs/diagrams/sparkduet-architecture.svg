@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 810" role="img" aria-label="SparkDuet architecture: clients reach one endpoint, a router selects a lane, two DGX Sparks serve depth, fleet, split and fine-tune lanes over a 200G RoCE fabric">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E8B75B"/><stop offset="1" stop-color="#C89038"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8FA1B3"/>
+    </marker>
+    <marker id="arrGold" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#E8B75B"/>
+    </marker>
+  </defs>
+
+  <rect width="1240" height="810" fill="#101418"/>
+  <text x="48" y="56" font-family="Menlo, Consolas, monospace" font-size="24" font-weight="bold" fill="#F2EFE8" letter-spacing="2">SPARKDUET</text>
+  <text x="48" y="84" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#C7D0D9">two DGX Sparks, operated as a small cluster with lanes</text>
+  <line x1="48" y1="102" x2="1192" y2="102" stroke="#2A333D" stroke-width="1"/>
+
+  <!-- clients band -->
+  <rect x="48" y="118" width="1144" height="84" rx="8" fill="#161C22" stroke="#2A333D"/>
+  <text x="72" y="146" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#F2EFE8">CLIENTS</text>
+  <text x="72" y="172" font-family="Menlo, Consolas, monospace" font-size="14" fill="#C7D0D9">OpenCode &#183; Cursor &#183; DeepSeek CLI &#183; Hermes &#183; anything speaking the OpenAI API</text>
+  <text x="1168" y="146" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#8FA1B3">one endpoint</text>
+  <text x="1168" y="166" text-anchor="end" font-family="Menlo, Consolas, monospace" font-size="13" fill="#E8B75B">:30008 /v1</text>
+
+  <!-- router -->
+  <line x1="620" y1="202" x2="620" y2="238" stroke="#8FA1B3" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="390" y="242" width="460" height="86" rx="8" fill="#1B2230" stroke="url(#gold)" stroke-width="1.5"/>
+  <text x="620" y="272" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="16" font-weight="bold" fill="#F0C97A">router.py</text>
+  <text x="620" y="294" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#DDE4EA">pin (@lane) &#183; spill on pressure &#183; typed refusals (413/429/503)</text>
+  <text x="620" y="313" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#AFBDCB">optional: single-lane deployments hit the lane port directly</text>
+
+  <!-- lane connectors: elbow rails, labels sit above their own rail, clear of every box -->
+  <path d="M500 328 L500 350 L318 350 L318 370" stroke="#E8B75B" stroke-width="1.6" fill="none" marker-end="url(#arrGold)"/>
+  <text x="409" y="344" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#E8B75B">default</text>
+  <path d="M738 328 L738 370" stroke="#8FA1B3" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <text x="750" y="352" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#AFBDCB">@fleet</text>
+  <path d="M800 328 L800 356 L1056 356 L1056 370" stroke="#8FA1B3" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+  <text x="928" y="350" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#AFBDCB">prompt &#8805; 8K</text>
+
+  <!-- Lane D -->
+  <rect x="80" y="374" width="476" height="128" rx="8" fill="#161C22" stroke="#E8B75B" stroke-width="1.5"/>
+  <text x="104" y="406" font-family="Menlo, Consolas, monospace" font-size="15" font-weight="bold" fill="#F0C97A">LANE D  DEPTH &#183; TP=2</text>
+  <text x="104" y="430" font-family="Helvetica, Arial, sans-serif" font-size="13.5" fill="#DDE4EA">one model too big for one box, sharded across both</text>
+  <text x="104" y="450" font-family="Menlo, Consolas, monospace" font-size="13" fill="#C7D0D9">DeepSeek-V4-Flash-0731 &#183; 284B MoE (13B active)</text>
+  <text x="104" y="470" font-family="Menlo, Consolas, monospace" font-size="13" fill="#C7D0D9">128K ctx (1M capable) &#183; DSpark spec &#183; nvfp4 KV</text>
+  <text x="104" y="490" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#AFBDCB">the only lane the 156 GiB FP8 checkpoint fits</text>
+
+  <!-- Lane F -->
+  <rect x="588" y="374" width="300" height="128" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <text x="612" y="406" font-family="Menlo, Consolas, monospace" font-size="15" font-weight="bold" fill="#F2EFE8">LANE F  FLEET &#183; DP=2</text>
+  <text x="612" y="430" font-family="Helvetica, Arial, sans-serif" font-size="13.5" fill="#DDE4EA">independent replica per node</text>
+  <text x="612" y="450" font-family="Menlo, Consolas, monospace" font-size="13" fill="#C7D0D9">one-node-fit models only</text>
+  <text x="612" y="470" font-family="Menlo, Consolas, monospace" font-size="13" fill="#C7D0D9">Qwen3.8-27B &#183; merged fine-tunes</text>
+  <text x="612" y="490" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#AFBDCB">node failure = half capacity, not zero</text>
+
+  <!-- Lane P -->
+  <rect x="920" y="374" width="272" height="128" rx="8" fill="#161C22" stroke="#2F3A46" stroke-dasharray="6 4"/>
+  <text x="944" y="406" font-family="Menlo, Consolas, monospace" font-size="15" font-weight="bold" fill="#F2EFE8">LANE P  SPLIT</text>
+  <text x="944" y="430" font-family="Helvetica, Arial, sans-serif" font-size="13.5" fill="#DDE4EA">prefill node / decode node</text>
+  <text x="944" y="450" font-family="Menlo, Consolas, monospace" font-size="13" fill="#C7D0D9">KV handoff &#8776;7 KiB/token</text>
+  <text x="944" y="470" font-family="Menlo, Consolas, monospace" font-size="13" fill="#C7D0D9">128K ctx &#8594; &#8776;0.1 s on fabric</text>
+  <text x="944" y="490" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#E8B75B">experimental &#183; gate before trusting</text>
+
+  <!-- nodes band -->
+  <rect x="80" y="546" width="508" height="180" rx="10" fill="#141A20" stroke="#2A333D"/>
+  <text x="104" y="578" font-family="Menlo, Consolas, monospace" font-size="15" font-weight="bold" fill="#F2EFE8">SPARK 1 &#183; head</text>
+  <text x="104" y="602" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#C7D0D9">GB10 &#183; 128 GB unified (~121 GiB usable)</text>
+  <rect x="104" y="618" width="220" height="34" rx="6" fill="#1B2230" stroke="#E8B75B"/>
+  <text x="214" y="640" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#F0C97A">depth rank 0 &#183; :30000</text>
+  <rect x="104" y="662" width="220" height="34" rx="6" fill="#1B2230" stroke="#2F3A46"/>
+  <text x="214" y="684" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#DDE4EA">fleet replica A &#183; :30010</text>
+  <rect x="344" y="618" width="232" height="34" rx="6" fill="#1B2230" stroke="#2F3A46"/>
+  <text x="460" y="640" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#DDE4EA">router &#183; :30008</text>
+  <rect x="344" y="662" width="232" height="34" rx="6" fill="#1B2230" stroke="#2F3A46"/>
+  <text x="460" y="684" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#DDE4EA">your gateway / house stack</text>
+
+  <rect x="652" y="546" width="540" height="180" rx="10" fill="#141A20" stroke="#2A333D"/>
+  <text x="676" y="578" font-family="Menlo, Consolas, monospace" font-size="15" font-weight="bold" fill="#F2EFE8">SPARK 2 &#183; worker</text>
+  <text x="676" y="602" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#C7D0D9">GB10 &#183; 128 GB unified (~121 GiB usable)</text>
+  <rect x="676" y="618" width="212" height="34" rx="6" fill="#1B2230" stroke="#E8B75B"/>
+  <text x="782" y="640" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#F0C97A">depth rank 1 &#183; headless</text>
+  <rect x="676" y="662" width="212" height="34" rx="6" fill="#1B2230" stroke="#2F3A46"/>
+  <text x="782" y="684" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#DDE4EA">fleet replica B &#183; :30010</text>
+  <rect x="908" y="618" width="260" height="34" rx="6" fill="#1B2230" stroke="#2F3A46"/>
+  <text x="1038" y="640" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#DDE4EA">on-demand GGUF library</text>
+  <rect x="908" y="662" width="260" height="34" rx="6" fill="#1B2230" stroke="#4A9A6C"/>
+  <text x="1038" y="684" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#7FC79B">fine-tune lane &#183; Unsloth QLoRA</text>
+
+  <!-- fabric: label above the rails, tag below, both inside the 64px gap -->
+  <path d="M588 640 L652 640" stroke="url(#gold)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M588 658 L652 658" stroke="url(#gold)" stroke-width="7" stroke-linecap="round"/>
+  <text x="620" y="628" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" font-weight="bold" fill="#F0C97A">2&#215;200G</text>
+  <text x="620" y="682" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12" fill="#E8B75B">RoCE</text>
+
+  <!-- measured callout -->
+  <rect x="80" y="746" width="1112" height="36" rx="6" fill="#161C22" stroke="#2A333D"/>
+  <text x="100" y="769" font-family="Menlo, Consolas, monospace" font-size="13" fill="#DDE4EA">[M-here] dual-rail NCCL all-reduce: <tspan fill="#F0C97A" font-weight="bold">42.0 GB/s bus bandwidth</tspan> &#183; needs /dev/infiniband in-container &#183; without it: 4.0 GB/s TCP</text>
+</svg>

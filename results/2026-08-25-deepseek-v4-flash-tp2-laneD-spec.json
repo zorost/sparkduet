@@ -1,0 +1,65 @@
+{
+  "lane": "deepseek-v4-flash-tp2-laneD",
+  "suite": "spec",
+  "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+  "trials": 2,
+  "elapsed_s": 60.2,
+  "utc": "2026-08-25T04:07:44Z",
+  "environment": {
+    "gpu": "NVIDIA GB10, 2502 MHz, 3003 MHz"
+  },
+  "cells": [
+    {
+      "prompt_tokens_nominal": 0,
+      "prompt_tokens_actual": 43,
+      "concurrency": 1,
+      "thinking": false,
+      "per_stream_tok_s": 68.1,
+      "aggregate_tok_s": 68.1,
+      "ttft_p50_s": 0.181,
+      "ttft_p95_s": 0.242,
+      "acceptance": 0.697,
+      "tokens_per_sse_chunk": 4.41,
+      "class": "code"
+    },
+    {
+      "prompt_tokens_nominal": 0,
+      "prompt_tokens_actual": 40,
+      "concurrency": 1,
+      "thinking": false,
+      "per_stream_tok_s": 72.2,
+      "aggregate_tok_s": 72.2,
+      "ttft_p50_s": 0.205,
+      "ttft_p95_s": 0.219,
+      "acceptance": 0.775,
+      "tokens_per_sse_chunk": 4.8,
+      "class": "math"
+    },
+    {
+      "prompt_tokens_nominal": 0,
+      "prompt_tokens_actual": 38,
+      "concurrency": 1,
+      "thinking": false,
+      "per_stream_tok_s": 33.6,
+      "aggregate_tok_s": 33.6,
+      "ttft_p50_s": 0.166,
+      "ttft_p95_s": 0.218,
+      "acceptance": 0.228,
+      "tokens_per_sse_chunk": 2.12,
+      "class": "prose"
+    },
+    {
+      "prompt_tokens_nominal": 0,
+      "prompt_tokens_actual": 44,
+      "concurrency": 1,
+      "thinking": false,
+      "per_stream_tok_s": 51.2,
+      "aggregate_tok_s": 51.2,
+      "ttft_p50_s": 0.186,
+      "ttft_p95_s": 0.249,
+      "acceptance": 0.503,
+      "tokens_per_sse_chunk": 3.48,
+      "class": "tool"
+    }
+  ]
+}

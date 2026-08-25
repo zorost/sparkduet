@@ -1,0 +1,99 @@
+name: validate
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  cpu-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shell syntax
+        run: |
+          set -e
+          for f in scripts/*.sh; do bash -n "$f"; done
+          echo "bash -n clean"
+
+      - name: shellcheck (advisory)
+        uses: reviewdog/action-shellcheck@v1
+        with:
+          reporter: github-pr-check
+          level: warning
+        continue-on-error: true
+
+      - name: python syntax
+        run: |
+          python3 -m py_compile scripts/router.py scripts/specadvisor.py scripts/bench.py \
+            scripts/allreduce_probe.py finetune/train-smoke.py
+          echo "py_compile clean"
+
+      - name: router unit tests
+        run: python3 scripts/test_router.py
+
+      - name: specadvisor unit tests
+        run: python3 scripts/test_specadvisor.py
+
+      - name: bench unit tests
+        run: python3 scripts/test_bench.py
+
+      - name: diagrams are valid XML
+        run: |
+          python3 - <<'PY'
+          import xml.dom.minidom, glob
+          for f in glob.glob("docs/diagrams/*.svg"):
+              xml.dom.minidom.parse(f)
+              print("valid:", f)
+          PY
+
+      - name: compose files parse
+        run: |
+          pip install pyyaml >/dev/null
+          python3 - <<'PY'
+          import yaml, glob
+          for f in glob.glob("configs/*.yml"):
+              yaml.safe_load(open(f))
+              print("parsed:", f)
+          PY
+
+      - name: env example has no secrets
+        run: |
+          ! grep -rEi '(api[_-]?key|token|secret|password)\s*=\s*[^<\"]' configs/sparkduet.env.example \
+            || { echo "possible secret in env example"; exit 1; }
+
+      - name: claims ladder lint
+        run: |
+          python3 - <<'PY'
+          import re, sys, pathlib
+          # accepts [M-here], and the qualified forms [M-here: src] / [M-else, note] / [P, note]
+          LABEL = re.compile(r"\[(?:M-here|M-else|P|reported)[\]:,]")
+          SCOPE = re.compile(r"<!--\s*ladder:\s*([A-Za-z\-]+)\s*-->")
+          VALID_SCOPES = {"M-here", "M-else", "P", "reported", "mixed", "end"}
+          bad = []
+          for p in pathlib.Path(".").rglob("*.md"):
+              if "node_modules" in p.parts: continue
+              t = p.read_text()
+              # block-scoped label: applies from the marker to the next marker
+              # ("end" closes a block without opening one)
+              marks = [(m.start(), m.group(1)) for m in SCOPE.finditer(t)]
+              intervals = []
+              for i, (pos, lab) in enumerate(marks):
+                  if lab not in VALID_SCOPES:
+                      bad.append(f"{p}: invalid ladder scope {lab!r}")
+                  if lab == "end":
+                      continue
+                  end = marks[i + 1][0] if i + 1 < len(marks) else len(t)
+                  intervals.append((pos, end))
+              for m in re.finditer(r"\b\d+(?:\.\d+)?\s*tok/s\b", t):
+                  ctx = t[max(0, m.start()-200): m.end()+200]
+                  if LABEL.search(ctx):
+                      continue
+                  if any(s <= m.start() < e for s, e in intervals):
+                      continue
+                  line = t[:m.start()].count("\n") + 1
+                  bad.append(f"{p}:{line}: bare tok/s without ladder label")
+          if bad:
+              print("\n".join(bad)); sys.exit(1)
+          print("claims ladder: every tok/s carries a label")
+          PY

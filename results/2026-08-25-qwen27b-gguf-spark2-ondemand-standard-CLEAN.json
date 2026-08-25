@@ -1,0 +1,35 @@
+{
+  "lane": "qwen27b-gguf-spark2-ondemand-FIXED",
+  "suite": "standard",
+  "model": "qwen3.8-27b",
+  "cells": [
+    {
+      "prompt_tokens": 256,
+      "concurrency": 1,
+      "thinking": false,
+      "aggregate_tok_s": 10.1,
+      "per_stream_tok_s": 10.1
+    },
+    {
+      "prompt_tokens": 256,
+      "concurrency": 2,
+      "thinking": false,
+      "aggregate_tok_s": 16.9,
+      "per_stream_tok_s": 8.5
+    },
+    {
+      "prompt_tokens": 2048,
+      "concurrency": 1,
+      "thinking": false,
+      "aggregate_tok_s": 8.5,
+      "per_stream_tok_s": 8.5
+    },
+    {
+      "prompt_tokens": 2048,
+      "concurrency": 2,
+      "thinking": false,
+      "aggregate_tok_s": 13.9,
+      "per_stream_tok_s": 7.0
+    }
+  ]
+}

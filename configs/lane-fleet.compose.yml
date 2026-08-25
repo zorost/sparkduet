@@ -1,0 +1,60 @@
+# Lane F, Fleet: two INDEPENDENT replicas (DP=2), one per node.
+# No cross-node collective on the serving path: each replica is a standalone
+# vLLM engine with its own KV pool. scripts/router.py (least-outstanding-requests
+# + failover) sits in front, or your own gateway does.
+#
+# FIT RULE (the honest one): Lane F requires the checkpoint to fit ONE node.
+#   ✓ Qwen3.8-27B (~29 GiB NVFP4 / ~28 GiB FP8)        , the recommended profile
+#   ✓ quantized DeepSeek builds under ~90 GiB (GGUF/EXL3 via their own servers)
+#   ✗ official DeepSeek-V4-Flash-0731 FP8 (~156 GiB)    , Lane D only
+# Earlier ecosystem claims that the FP8 checkpoint "loads in 79 GiB on one node"
+# misread a TP=2 per-rank number. See docs/ARCHITECTURE.md §3.
+#
+# sparkduetctl.sh exports FLEET_MODEL_ID / FLEET_SERVED_NAME / FLEET_PORT per
+# node and brings up the same service on both.
+
+services:
+  fleet-replica:
+    image: ${VLLM_IMAGE}
+    entrypoint: ["vllm", "serve"]
+    container_name: sparkduet-fleet
+    network_mode: host
+    restart: unless-stopped
+    ipc: host
+    shm_size: 16gb
+    volumes:
+      - ${HF_CACHE}:/root/.cache/huggingface
+      - ${MODEL_DIR}:${MODEL_DIR}:ro
+    environment:
+      HF_HOME: /root/.cache/huggingface
+      HF_HUB_OFFLINE: "${HF_HUB_OFFLINE}"
+      VLLM_USE_BREAKABLE_CUDAGRAPH: "${VLLM_USE_BREAKABLE_CUDAGRAPH}"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+    command: >
+      ${FLEET_MODEL_ID}
+      --served-model-name ${FLEET_SERVED_NAME}
+      --trust-remote-code
+      --tensor-parallel-size 1
+      --kv-cache-dtype ${F_KV_DTYPE}
+      --max-model-len ${F_MAX_MODEL_LEN}
+      --max-num-seqs ${F_MAX_NUM_SEQS}
+      --enable-chunked-prefill
+      --async-scheduling
+      --enable-prefix-caching
+      --gpu-memory-utilization ${F_GPU_MEM_UTIL}
+      --enable-auto-tool-choice
+      --tool-call-parser hermes
+      --reasoning-parser qwen3
+      --generation-config vllm
+      --host ${F_HOST:-127.0.0.1}
+      --port ${FLEET_PORT}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${FLEET_PORT}/v1/models || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 900s

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 660" role="img" aria-label="Single-model deep recipes (MiaAI-Lab, Keys, entrpi, tonyd2wild) beside SparkDuet's operating model: one router in front of Lane D, Lane F, Lane P and a fine-tune lane, with parity where they overlap">
+  <rect width="1240" height="660" fill="#101418"/>
+  <text x="48" y="56" font-family="Menlo, Consolas, monospace" font-size="24" font-weight="bold" fill="#F2EFE8" letter-spacing="2">THE FIELD AND THE PAIR</text>
+  <text x="48" y="84" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#C7D0D9">the deep single-model recipes are excellent; SparkDuet runs one of them as a lane and adds the rest of the pair's job</text>
+  <line x1="48" y1="102" x2="1192" y2="102" stroke="#2A333D"/>
+
+  <!-- LEFT: the field -->
+  <text x="48" y="138" font-family="Menlo, Consolas, monospace" font-size="14.5" font-weight="bold" fill="#E8B75B" letter-spacing="1.5">SINGLE-MODEL DEEP RECIPES</text>
+
+  <rect x="48" y="154" width="520" height="96" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <text x="68" y="182" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="bold" fill="#F2EFE8">MiaAI-Lab &#183; DeepSeek-V4-Flash on 2x Spark</text>
+  <text x="68" y="204" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">the reference. 1M ceiling, 2.49M-token KV pool, seven issue hotfixes,</text>
+  <text x="68" y="222" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">dated results culture. 62-83 tok/s single stream.</text>
+  <text x="68" y="241" font-family="Menlo, Consolas, monospace" font-size="11.5" fill="#7FC79B">RUN IT AS SHIPPED: one user, dedicated boxes, 1M-token docs</text>
+
+  <rect x="48" y="262" width="520" height="72" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <text x="68" y="290" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="bold" fill="#F2EFE8">Keys &#183; Stage-C concurrency path</text>
+  <text x="68" y="310" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">200K ceiling, 16 slots: 315 static / 205 staggered aggregate tok/s.</text>
+  <text x="68" y="327" font-family="Menlo, Consolas, monospace" font-size="11.5" fill="#7FC79B">RUN IT: maximum aggregate on one model</text>
+
+  <rect x="48" y="346" width="520" height="72" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <text x="68" y="374" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="bold" fill="#F2EFE8">entrpi &#183; ds4-on-spark, one node</text>
+  <text x="68" y="394" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">best single-node engine: ~1,000 tok/s prefill, 3M tokens resident.</text>
+  <text x="68" y="411" font-family="Menlo, Consolas, monospace" font-size="11.5" fill="#7FC79B">RUN IT: you own exactly one Spark</text>
+
+  <rect x="48" y="430" width="520" height="58" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <text x="68" y="458" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="bold" fill="#F2EFE8">tonyd2wild &#183; 1M NVFP4 lines</text>
+  <text x="68" y="477" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">quantization groundwork the whole ecosystem leans on.</text>
+
+  <!-- arrow from field to lane D -->
+  <path d="M568 202 C 610 202, 610 236, 648 236" stroke="#E8B75B" stroke-width="1.6" fill="none"/>
+  <path d="M648 236 l-9 -5 v10 z" fill="#E8B75B"/>
+  <text x="608" y="192" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#E8B75B">same lineage</text>
+
+  <!-- RIGHT: SparkDuet -->
+  <text x="648" y="138" font-family="Menlo, Consolas, monospace" font-size="14.5" font-weight="bold" fill="#E8B75B" letter-spacing="1.5">SPARKDUET &#183; AN OPERATING MODEL FOR THE PAIR</text>
+
+  <rect x="648" y="154" width="544" height="52" rx="8" fill="#1B2129" stroke="#8A6420" stroke-width="1.4"/>
+  <text x="668" y="176" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#FFE7B8">9Router &#183; one OpenAI-compatible endpoint</text>
+  <text x="668" y="196" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#C7D0D9">every harness (OpenCode, Cursor, Hermes, chat) sees one URL; lanes swap behind it</text>
+
+  <rect x="648" y="220" width="544" height="66" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="648" y="220" width="6" height="66" fill="#8A6420"/>
+  <text x="670" y="244" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#F2EFE8">LANE D &#183; the flagship, TP=2 across both Sparks</text>
+  <text x="670" y="264" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">DeepSeek FP8 + DSpark k=7: 72.2 math / 68.1 code / 33.6 prose tok/s [M-here]</text>
+  <text x="670" y="280" font-family="Menlo, Consolas, monospace" font-size="11.5" fill="#7FC79B">parity with the reference where they overlap, measured per workload</text>
+
+  <rect x="648" y="298" width="544" height="60" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="648" y="298" width="6" height="60" fill="#7ea4c4"/>
+  <text x="670" y="322" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#F2EFE8">LANE F &#183; two independent replicas, one-node-fit models</text>
+  <text x="670" y="342" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">27B class + merged fine-tunes; node loss = half capacity, prefill 2x</text>
+
+  <rect x="648" y="370" width="544" height="60" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="648" y="370" width="6" height="60" fill="#5A2430"/>
+  <text x="670" y="394" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#F2EFE8">LANE P &#183; prefill/decode split (experimental, labeled)</text>
+  <text x="670" y="414" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">isolates long-prompt prefill from live decode for one-node-fit models</text>
+
+  <rect x="648" y="442" width="544" height="60" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="648" y="442" width="6" height="60" fill="#2E4A3A"/>
+  <text x="670" y="466" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#F2EFE8">FINE-TUNE LANE &#183; Unsloth on the worker, smoke-gated</text>
+  <text x="670" y="486" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">QLoRA to ~70B in 128 GiB unified; verified: loss 2.12 to 0.21 in 81 s [M-here]</text>
+
+  <!-- bottom strip -->
+  <line x1="48" y1="530" x2="1192" y2="530" stroke="#2A333D"/>
+  <text x="48" y="562" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#FFE7B8">WHAT MAKES IT SAFE TO TRY</text>
+  <text x="48" y="586" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#C7D0D9">sparkduetctl captures whatever was running before it starts, and `revert` puts it back. doctor gates the fabric and probes for</text>
+  <text x="48" y="606" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#C7D0D9">silent CPU fallback. bench.py refuses short runs and counts only usage.completion_tokens. Every published number ships its artifact.</text>
+  <text x="48" y="636" font-family="Menlo, Consolas, monospace" font-size="12" fill="#7FC79B">[M-here] = measured on this pair, artifact committed &#160;&#160; [M-else] = third-party, cited &#160;&#160; [P] = projection with derivation</text>
+</svg>
