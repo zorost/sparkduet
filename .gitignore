@@ -1,0 +1,47 @@
+# ---- SparkDuet local state (never commit) ----
+# Cluster config: contains your node addresses, paths, fabric settings
+sparkduet.env
+.env
+.env.*
+
+# Runtime logs and scratch. Curated benchmark artifacts (results/*.json + .md)
+# ARE committed: the protocol says a published number ships with its artifact.
+results/*.log
+results/*.md.tmp
+results/*.jsonl
+# Incumbent captures hold docker-inspect dumps (env vars, local paths): never commit.
+results/incumbent-*/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# OS / editor noise
+.DS_Store
+*.swp
+*~
+
+# ---- Weights and caches (huge; fetch with prepare-models.sh instead) ----
+*.gguf
+*.safetensors
+*.bin
+*.pt
+models/
+hf-cache/
+.cache/
+
+# ---- Local secrets of any kind ----
+*.key
+*.pem
+id_*
+secrets.*
+
+# ---- Private handover / ops docs (keep outside the repo; belt and braces) ----
+HANDOVER*.md
+PUBLISHING*.md
+spark_term.py
+
+# ---- Marketing / social drafts (local only, never published) ----
+social/

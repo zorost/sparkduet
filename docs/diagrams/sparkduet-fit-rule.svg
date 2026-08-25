@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 620" role="img" aria-label="The fit rule: a 156 GiB checkpoint cannot fit a 121 GiB node; TP=2 splits it 78 GiB per node; a 29 GiB model fits each node as independent replicas">
+  <rect width="1240" height="620" fill="#101418"/>
+  <text x="48" y="56" font-family="Menlo, Consolas, monospace" font-size="24" font-weight="bold" fill="#F2EFE8" letter-spacing="2">THE FIT RULE</text>
+  <text x="48" y="84" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#C7D0D9">everything in SparkDuet follows from one number: ~121 GiB of GPU-usable unified memory per Spark</text>
+  <line x1="48" y1="102" x2="1192" y2="102" stroke="#2A333D"/>
+
+  <!-- scale: 121 GiB = 420px => 3.47 px/GiB. Bars are 64 high. -->
+
+  <!-- Row 1: FP8 on one node: DOES NOT FIT -->
+  <text x="48" y="152" font-family="Menlo, Consolas, monospace" font-size="14.5" font-weight="bold" fill="#F2EFE8">DeepSeek-V4-Flash FP8 on ONE node</text>
+  <rect x="48" y="166" width="420" height="64" rx="6" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="48" y="166" width="420" height="64" rx="6" fill="#5A2430" opacity="0.55"/>
+  <rect x="468" y="166" width="122" height="64" rx="0" fill="#5A2430"/>
+  <line x1="468" y1="150" x2="468" y2="246" stroke="#F2EFE8" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="468" y="262" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#F2EFE8">121 GiB node limit</text>
+  <text x="68" y="204" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="bold" fill="#FFB3C0">156 GiB weights</text>
+  <text x="612" y="196" font-family="Menlo, Consolas, monospace" font-size="15" font-weight="bold" fill="#FF8FA3">DOES NOT FIT</text>
+  <text x="612" y="218" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#C7D0D9">the viral "loads in 79.17 GiB" figure is a TP=2 per-rank number</text>
+
+  <!-- Row 2: TP=2 -->
+  <text x="48" y="316" font-family="Menlo, Consolas, monospace" font-size="14.5" font-weight="bold" fill="#F2EFE8">Lane D  the same checkpoint, TP=2 across the pair</text>
+  <!-- node 1 -->
+  <rect x="48" y="330" width="420" height="64" rx="6" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="48" y="330" width="271" height="64" rx="6" fill="#8A6420"/>
+  <rect x="319" y="330" width="63" height="64" fill="#2E4A3A"/>
+  <text x="68" y="358" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#FFE7B8">78 GiB &#183; rank 0</text>
+  <text x="68" y="378" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#F2EFE8">half the experts + attention</text>
+  <text x="330" y="368" font-family="Menlo, Consolas, monospace" font-size="12" fill="#A9E0BE">KV</text>
+  <text x="478" y="358" font-family="Menlo, Consolas, monospace" font-size="13" fill="#C7D0D9">Spark 1</text>
+  <!-- node 2 -->
+  <rect x="48" y="404" width="420" height="64" rx="6" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="48" y="404" width="271" height="64" rx="6" fill="#8A6420"/>
+  <rect x="319" y="404" width="63" height="64" fill="#2E4A3A"/>
+  <text x="68" y="432" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#FFE7B8">78 GiB &#183; rank 1</text>
+  <text x="68" y="452" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#F2EFE8">the other half</text>
+  <text x="330" y="442" font-family="Menlo, Consolas, monospace" font-size="12" fill="#A9E0BE">KV</text>
+  <text x="478" y="432" font-family="Menlo, Consolas, monospace" font-size="13" fill="#C7D0D9">Spark 2</text>
+  <path d="M395 398 L395 404" stroke="#E8B75B" stroke-width="0"/>
+  <text x="612" y="360" font-family="Menlo, Consolas, monospace" font-size="15" font-weight="bold" fill="#7FC79B">FITS  the only way</text>
+  <text x="612" y="382" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#C7D0D9">one shared KV pool, 1M context, NCCL on the 200G fabric;</text>
+  <text x="612" y="402" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#C7D0D9">the price: both nodes form one failure domain</text>
+  <text x="612" y="440" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#E8B75B">[M-else] 2,493,464-token pool at nvfp4_ds_mla (18.08 GiB/node)</text>
+
+  <!-- Row 3: Qwen replicas -->
+  <text x="48" y="524" font-family="Menlo, Consolas, monospace" font-size="14.5" font-weight="bold" fill="#F2EFE8">Lane F  a one-node-fit model, replica per node</text>
+  <rect x="48" y="538" width="420" height="52" rx="6" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="48" y="538" width="101" height="52" rx="6" fill="#31527E"/>
+  <rect x="149" y="538" width="233" height="52" fill="#2E4A3A"/>
+  <text x="60" y="570" font-family="Menlo, Consolas, monospace" font-size="12.5" font-weight="bold" fill="#CFE3FF">29 GiB</text>
+  <text x="160" y="570" font-family="Menlo, Consolas, monospace" font-size="12.5" fill="#A9E0BE">big KV pool + headroom</text>
+  <text x="478" y="562" font-family="Menlo, Consolas, monospace" font-size="13" fill="#C7D0D9">&#215; 2 nodes</text>
+  <text x="612" y="558" font-family="Menlo, Consolas, monospace" font-size="15" font-weight="bold" fill="#7FC79B">FITS TWICE</text>
+  <text x="612" y="580" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#C7D0D9">Qwen3.8-27B NVFP4 (or your merged fine-tune): two engines, isolated failures</text>
+</svg>

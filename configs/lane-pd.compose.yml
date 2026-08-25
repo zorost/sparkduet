@@ -1,0 +1,101 @@
+# Lane P, Split: prefill/decode disaggregation.  ****EXPERIMENTAL****
+#
+#   prefill node (default: worker) , ingests long prompts, computes KV, ships it
+#   decode  node (default: head)   , holds the deep KV pool, never runs big prefills
+#
+# Why the physics favors it on GB10: sparse-MLA KV is ~7 KiB/token; a 128K-token
+# conversation is ~0.9 GB over the 200G link (<0.1 s). The decode node keeps its
+# bandwidth-bound decode rate instead of collapsing under mixed prefill.
+#
+# FIT RULE: like Lane F, each node holds the FULL model, so Lane P applies only
+# to one-node-fit checkpoints (Qwen profile, quantized builds), never the
+# official 156 GiB DeepSeek FP8. For that model, Lane D's chunked-prefill +
+# long-prefill threshold is the only mitigation on a 2-node pair.
+#
+# STATUS: the KV handoff uses vLLM's upstream P2P disaggregation connector.
+# Validate on your pair with `sparkduetctl.sh start split` + `bench.py --suite
+# mixed-long` BEFORE putting traffic on it, and read the lane's section in
+# docs/ARCHITECTURE.md §4 for the failure semantics (connector error → the
+# decode node re-prefills; degraded, never incorrect).
+
+x-pd-common: &pd-common
+  image: ${VLLM_IMAGE}
+  entrypoint: ["vllm", "serve"]
+  network_mode: host
+  restart: unless-stopped
+  ipc: host
+  shm_size: 16gb
+  devices:
+    - /dev/infiniband:/dev/infiniband
+  cap_add:
+    - IPC_LOCK
+  volumes:
+    - ${HF_CACHE}:/root/.cache/huggingface
+    - ${MODEL_DIR}:${MODEL_DIR}:ro
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - capabilities: ["gpu"]
+
+x-pd-env: &pd-env
+  HF_HOME: /root/.cache/huggingface
+  HF_HUB_OFFLINE: "${HF_HUB_OFFLINE}"
+  NCCL_IB_HCA: ${NCCL_IB_HCA}
+  NCCL_SOCKET_IFNAME: ${NCCL_SOCKET_IFNAME}
+  NCCL_IB_GID_INDEX: "${NCCL_IB_GID_INDEX}"
+  VLLM_USE_BREAKABLE_CUDAGRAPH: "${VLLM_USE_BREAKABLE_CUDAGRAPH}"
+
+services:
+  sparkduet-prefill:
+    <<: *pd-common
+    container_name: sparkduet-prefill
+    environment: *pd-env
+    command: >
+      ${P_MODEL:-${QWEN_MODEL}}
+      --served-model-name ${P_SERVED_NAME:-sparkduet-split}-prefill
+      --trust-remote-code
+      --tensor-parallel-size 1
+      --max-model-len ${P_MAX_MODEL_LEN}
+      --max-num-seqs 4
+      --max-num-batched-tokens 16384
+      --enable-chunked-prefill
+      --gpu-memory-utilization ${P_GPU_MEM_UTIL_PREFILL}
+      --generation-config vllm
+      --kv-transfer-config '{"kv_connector":"P2pNcclConnector","kv_role":"kv_producer","kv_port":"${P_PREFILL_PORT}"}'
+      --host 0.0.0.0
+      --port ${P_PREFILL_PORT}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${P_PREFILL_PORT}/v1/models || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 900s
+
+  sparkduet-decode:
+    <<: *pd-common
+    container_name: sparkduet-decode
+    environment: *pd-env
+    command: >
+      ${P_MODEL:-${QWEN_MODEL}}
+      --served-model-name ${P_SERVED_NAME:-sparkduet-split}
+      --trust-remote-code
+      --tensor-parallel-size 1
+      --max-model-len ${P_MAX_MODEL_LEN}
+      --max-num-seqs ${P_DECODE_MAX_NUM_SEQS}
+      --max-num-batched-tokens 1024
+      --long-prefill-token-threshold 256
+      --enable-chunked-prefill
+      --async-scheduling
+      --enable-prefix-caching
+      --gpu-memory-utilization ${P_GPU_MEM_UTIL_DECODE}
+      --generation-config vllm
+      --kv-transfer-config '{"kv_connector":"P2pNcclConnector","kv_role":"kv_consumer","kv_port":"${P_DECODE_PORT}"}'
+      --host 0.0.0.0
+      --port ${P_DECODE_PORT}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${P_DECODE_PORT}/v1/models || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 900s

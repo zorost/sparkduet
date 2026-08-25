@@ -1,0 +1,44 @@
+# SparkDuet fine-tuning lane, Unsloth on one node (the one NOT serving Lane D
+# traffic, or either node during a serving pause).
+#
+# The image is NVIDIA's Unsloth build for DGX Spark (CUDA 13 / sm_121a ready).
+# It runs as a long-lived container you exec into, so a dropped SSH session
+# never kills a training run. Pair with tmux inside for extra insurance.
+#
+# Memory reality on a 128 GB unified-memory GB10:
+#   QLoRA 4-bit:  models up to ~70B trainable (rank 16-32, seq 4-8K)
+#   LoRA 16-bit:  models up to ~27B comfortable
+#   Full FT:      up to ~7B, gradient-checkpointed
+#
+# Bring up:   docker compose --env-file ../sparkduet.env -f finetune.compose.yml up -d
+# Enter:      docker exec -it sparkduet-finetune bash
+# Smoke test: docker exec sparkduet-finetune python3 /work/finetune/train-smoke.py
+
+services:
+  finetune:
+    image: ${FINETUNE_IMAGE}
+    container_name: sparkduet-finetune
+    network_mode: host
+    restart: unless-stopped
+    ipc: host
+    shm_size: 32gb
+    # The upstream image runs as uid 1001 (unsloth), which cannot write a
+    # root-owned host cache or /root inside the container. Root matches how
+    # the serving containers already run and sidesteps host-uid guesswork.
+    user: "0:0"
+    volumes:
+      - ${HF_CACHE}:/root/.cache/huggingface
+      - ${MODEL_DIR}:${MODEL_DIR}:ro
+      - ${SPARKDUET_DIR}:/work
+      - ${FINETUNE_OUTPUT_DIR:-/srv/ai/finetune}:/outputs
+    environment:
+      HF_HOME: /root/.cache/huggingface
+      # training pulls tokenizers/datasets; keep online unless fully pre-staged
+      HF_HUB_OFFLINE: "0"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+    # idle keeper: the container is a workbench, jobs run via docker exec
+    command: sleep infinity

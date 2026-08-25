@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 660" role="img" aria-label="Other approaches treat two Sparks as one GPU for one model. SparkDuet is the operating layer for the pair: one router, four resident lanes, and a fine-tune lane.">
+  <rect width="1240" height="660" fill="#101418"/>
+  <text x="48" y="56" font-family="Menlo, Consolas, monospace" font-size="24" font-weight="bold" fill="#F2EFE8" letter-spacing="2">OTHER APPROACHES, THEN THE PAIR</text>
+  <text x="48" y="84" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#C7D0D9">other people publish one-model recipes; SparkDuet is the operating layer that runs the whole pair</text>
+  <line x1="48" y1="102" x2="1192" y2="102" stroke="#2A333D"/>
+
+  <text x="48" y="138" font-family="Menlo, Consolas, monospace" font-size="14.5" font-weight="bold" fill="#E8B75B" letter-spacing="1.5">OTHER APPROACHES</text>
+
+  <rect x="48" y="154" width="520" height="96" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <text x="68" y="182" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="bold" fill="#F2EFE8">Dedicated pair, one resident</text>
+  <text x="68" y="204" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">Two boxes, one checkpoint, all day. The next model means an</text>
+  <text x="68" y="222" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">uninstall, a second pair, or a night with nothing serving.</text>
+  <text x="68" y="241" font-family="Menlo, Consolas, monospace" font-size="11.5" fill="#7FC79B">FITS: one user, one model, boxes that do nothing else</text>
+
+  <rect x="48" y="262" width="520" height="72" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <text x="68" y="290" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="bold" fill="#F2EFE8">Concurrency-max overlay</text>
+  <text x="68" y="310" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">More slots, a lower ceiling, aggregate tok/s as the headline.</text>
+  <text x="68" y="327" font-family="Menlo, Consolas, monospace" font-size="11.5" fill="#7FC79B">FITS: one model, maximum batch, dedicated silicon</text>
+
+  <rect x="48" y="346" width="520" height="72" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <text x="68" y="374" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="bold" fill="#F2EFE8">One-node engine</text>
+  <text x="68" y="394" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">A single Spark, a quantized resident, no fabric, no swap.</text>
+  <text x="68" y="411" font-family="Menlo, Consolas, monospace" font-size="11.5" fill="#7FC79B">FITS: you own exactly one box</text>
+
+  <rect x="48" y="430" width="520" height="58" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <text x="68" y="458" font-family="Menlo, Consolas, monospace" font-size="14" font-weight="bold" fill="#F2EFE8">Quantization-only line</text>
+  <text x="68" y="477" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">A checkpoint format. Not a pair, not a swap, not a lab.</text>
+
+  <text x="648" y="138" font-family="Menlo, Consolas, monospace" font-size="14.5" font-weight="bold" fill="#E8B75B" letter-spacing="1.5">SPARKDUET · THE PAIR AS A SYSTEM</text>
+
+  <rect x="648" y="154" width="544" height="52" rx="8" fill="#1B2129" stroke="#8A6420" stroke-width="1.4"/>
+  <text x="668" y="176" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#FFE7B8">One OpenAI-compatible endpoint</text>
+  <text x="668" y="196" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#C7D0D9">OpenCode, Cursor, Hermes, and chat keep one URL; lanes swap behind it</text>
+
+  <rect x="648" y="220" width="544" height="66" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="648" y="220" width="6" height="66" fill="#8A6420"/>
+  <text x="670" y="244" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#F2EFE8">LANE D · Depth, TP=2 across both Sparks</text>
+  <text x="670" y="264" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">DeepSeek FP8 + DSpark: 72.2 math / 68.1 code / 33.6 prose tok/s [M-here]</text>
+  <text x="670" y="280" font-family="Menlo, Consolas, monospace" font-size="11.5" fill="#7FC79B">measured per workload, with acceptance attached</text>
+
+  <rect x="648" y="298" width="544" height="60" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="648" y="298" width="6" height="60" fill="#7ea4c4"/>
+  <text x="670" y="322" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#F2EFE8">LANE F · two independent replicas, one-node-fit models</text>
+  <text x="670" y="342" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">27B class + merged fine-tunes; node loss = half capacity, prefill 2x</text>
+
+  <rect x="648" y="370" width="544" height="60" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="648" y="370" width="6" height="60" fill="#5A2430"/>
+  <text x="670" y="394" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#F2EFE8">LANE N · Next, and LANE G · GLM, same hop</text>
+  <text x="670" y="414" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">Flash-Next and GLM-5.3 stay on disk. switch next / switch glm.</text>
+
+  <rect x="648" y="442" width="544" height="60" rx="8" fill="#161C22" stroke="#2F3A46"/>
+  <rect x="648" y="442" width="6" height="60" fill="#2E4A3A"/>
+  <text x="670" y="466" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#F2EFE8">FINE-TUNE LANE · Unsloth on the idle node, smoke-gated</text>
+  <text x="670" y="486" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#C7D0D9">QLoRA to ~70B in 128 GiB unified; verified: loss 2.12 to 0.21 in 81 s [M-here]</text>
+
+  <line x1="48" y1="530" x2="1192" y2="530" stroke="#2A333D"/>
+  <text x="48" y="562" font-family="Menlo, Consolas, monospace" font-size="13.5" font-weight="bold" fill="#FFE7B8">WHAT MAKES IT A COMPLETE APPROACH</text>
+  <text x="48" y="586" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#C7D0D9">sparkduetctl captures whatever was running before it starts, and revert puts it back. doctor gates the fabric and probes for</text>
+  <text x="48" y="606" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#C7D0D9">silent CPU fallback. bench.py refuses short runs and counts only usage.completion_tokens. Every published number ships its artifact.</text>
+  <text x="48" y="636" font-family="Menlo, Consolas, monospace" font-size="12" fill="#7FC79B">[M-here] = measured on this pair, artifact committed &#160;&#160; [M-else] = third-party, cited &#160;&#160; [P] = projection with derivation</text>
+</svg>

@@ -1,0 +1,35 @@
+{
+  "lane": "qwen27b-gguf-spark2-ondemand",
+  "suite": "standard",
+  "model": "qwen3.8-27b",
+  "cells": [
+    {
+      "prompt_tokens": 256,
+      "concurrency": 1,
+      "thinking": false,
+      "aggregate_tok_s": 3.3,
+      "per_stream_tok_s": 3.3
+    },
+    {
+      "prompt_tokens": 256,
+      "concurrency": 2,
+      "thinking": false,
+      "aggregate_tok_s": 4.3,
+      "per_stream_tok_s": 2.1
+    },
+    {
+      "prompt_tokens": 2048,
+      "concurrency": 1,
+      "thinking": false,
+      "aggregate_tok_s": 3.5,
+      "per_stream_tok_s": 3.5
+    },
+    {
+      "prompt_tokens": 2048,
+      "concurrency": 2,
+      "thinking": false,
+      "aggregate_tok_s": 4.0,
+      "per_stream_tok_s": 2.0
+    }
+  ]
+}
