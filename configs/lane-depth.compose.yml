@@ -63,10 +63,12 @@ x-depth-env: &depth-env
   TRITON_CACHE_DIR: /root/.cache/vllm/jit/triton
   TILELANG_CACHE_DIR: /root/.cache/vllm/jit/tilelang
   B12X_CUTE_COMPILE_CACHE_DIR: /root/.cache/vllm/jit/b12x-cute
-  # PyTorch NCCL flight recorder: ring buffer of recent collectives, dumped
-  # one file per rank on watchdog timeout so a TP hang leaves forensics
-  # instead of nothing. Analyze with `torchfrtrace <prefix>*`. Both dump-path
-  # keys are set; torch honors whichever this build reads, the other is inert.
+  # PyTorch flight recorder: ring buffer of recent collectives, dumped one
+  # file per rank on watchdog timeout so a TP hang leaves forensics instead
+  # of nothing. Analyze with `torchfrtrace <prefix>*`. This image (torch
+  # 2.11) prefers TORCH_FR_BUFFER_SIZE and still accepts the older
+  # TORCH_NCCL_TRACE_BUFFER_SIZE alias; both dump-path keys are set.
+  TORCH_FR_BUFFER_SIZE: "2000"
   TORCH_NCCL_TRACE_BUFFER_SIZE: "2000"
   TORCH_NCCL_DUMP_ON_TIMEOUT: "1"
   TORCH_NCCL_DEBUG_INFO_TEMP_FILE: /root/.cache/vllm/nccl-flight/trace_rank_
