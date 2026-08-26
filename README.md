@@ -174,6 +174,7 @@ the out-of-the-box Lane D recipe. Every knob lives in `sparkduet.env`
 | Reasoning and tools | `deepseek_v4` reasoning and tool-call parsers on, auto tool choice on |
 | Boot-time hotfixes | truncated tool-call guard and stops-dormant-in-reasoning, applied idempotently at container start (`patches/README.md`, credited) |
 | Fabric hardening | UCX registration-cache bounds against the community-documented unified-memory leak under sustained TP=2 load |
+| Boot hardening | Triton, TileLang, and CuTeDSL JIT caches persist on the cache volume across recreates; the post-ready warmup covers decode shapes and every sampler family; the NCCL flight recorder is armed, dumping per-rank traces on watchdog timeout |
 
 The ceilings interact: `max_model_len` and `max_num_seqs` are limits, and the
 real constraint is the shared KV pool (see the boot log's own

@@ -55,6 +55,22 @@ x-depth-env: &depth-env
   # Community root cause and fix: NVIDIA forum thread 374742.
   UCX_MEM_MMAP_HOOK_MODE: none
   UCX_RCACHE_MAX_UNRELEASED: "1024"
+  # Three JIT caches (Triton, TileLang, and the CuTeDSL object cache behind
+  # the b12x MoE backend) default to paths inside the container layer, so a
+  # recreate throws them away and the kernels re-JIT mid-serve. On TP=2 a
+  # compile stall on one rank can outlive the NCCL watchdog and take the
+  # whole pair down; keep the caches on the persisted vLLM cache volume.
+  TRITON_CACHE_DIR: /root/.cache/vllm/jit/triton
+  TILELANG_CACHE_DIR: /root/.cache/vllm/jit/tilelang
+  B12X_CUTE_COMPILE_CACHE_DIR: /root/.cache/vllm/jit/b12x-cute
+  # PyTorch NCCL flight recorder: ring buffer of recent collectives, dumped
+  # one file per rank on watchdog timeout so a TP hang leaves forensics
+  # instead of nothing. Analyze with `torchfrtrace <prefix>*`. Both dump-path
+  # keys are set; torch honors whichever this build reads, the other is inert.
+  TORCH_NCCL_TRACE_BUFFER_SIZE: "2000"
+  TORCH_NCCL_DUMP_ON_TIMEOUT: "1"
+  TORCH_NCCL_DEBUG_INFO_TEMP_FILE: /root/.cache/vllm/nccl-flight/trace_rank_
+  TORCH_FR_DUMP_TEMP_FILE: /root/.cache/vllm/nccl-flight/trace_rank_
 
 services:
   depth-head:
