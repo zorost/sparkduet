@@ -14,10 +14,26 @@ set -a; source "$ENV_FILE"; set +a
 die(){ echo "prepare-models: ERROR: $*" >&2; exit 1; }
 ssh_worker(){ ssh -o BatchMode=yes -o ConnectTimeout=8 "${WORKER_USER}@${WORKER_HOST}" "$@"; }
 
+hf_download() { # repo rev dest_or_empty
+  local repo="$1" rev="$2" dest="$3"
+  if command -v hf >/dev/null; then
+    if [[ -n "$dest" ]]; then
+      HF_HUB_OFFLINE=0 hf download "$repo" --revision "${rev:-main}" --local-dir "$dest"
+    else
+      HF_HUB_OFFLINE=0 hf download "$repo" --revision "${rev:-main}"
+    fi
+    return 0
+  fi
+  return 1
+}
+
 fetch_one() { # repo revision cache_dir, forces HF online even if HF_HUB_OFFLINE=1
   local repo="$1" rev="$2" cache="$3"
   [[ -n "$repo" ]] || return 0
   echo ">> $repo @ ${rev:-main} -> $cache"
+  if hf_download "$repo" "$rev" ""; then
+    return 0
+  fi
   HF_HUB_OFFLINE=0 HF_HOME="$cache" python3 - "$repo" "$rev" <<'PY'
 import sys
 from huggingface_hub import snapshot_download
@@ -70,13 +86,15 @@ stage_flash_next() {
   local rev="${N_REVISION:-7b719225242aacd3dbd3f9407468c2ee9a9d2594}"
   if [[ "${dest:0:1}" == "/" ]]; then
     echo ">> $repo @ $rev -> $dest (then fabric sync)"
-    HF_HUB_OFFLINE=0 python3 - "$repo" "$rev" "$dest" <<'PY'
+    if ! hf_download "$repo" "$rev" "$dest"; then
+      HF_HUB_OFFLINE=0 python3 - "$repo" "$rev" "$dest" <<'PY'
 import sys
 from huggingface_hub import snapshot_download
 repo, rev, dest = sys.argv[1], sys.argv[2], sys.argv[3]
 snapshot_download(repo_id=repo, revision=rev, local_dir=dest)
 print("downloaded:", dest)
 PY
+    fi
     [[ -f "$dest/config.json" ]] || die "Flash-Next download incomplete at $dest"
     sync_worker "$(basename "$dest")"
   else
