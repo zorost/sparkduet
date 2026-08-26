@@ -41,6 +41,9 @@ jobs:
       - name: lane-next wiring tests
         run: python3 scripts/test_lane_next.py
 
+      - name: lane-glm wiring tests
+        run: python3 scripts/test_lane_glm.py
+
       - name: diagrams are valid XML
         run: |
           python3 - <<'PY'

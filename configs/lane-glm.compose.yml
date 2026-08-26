@@ -1,0 +1,113 @@
+# Lane G, GLM: vLLM TP=2 for GLM-5.3-Flash NVFP4.
+# Same two-box topology as Lane D. Never concurrent with depth, next, or fleet:
+# sparkduetctl.sh switch glm drains and stops the incumbent first.
+#
+# Checkpoint: LibertAIDAI/GLM-5.3-Flash-NVFP4 (~181 GiB). Base is
+# zai-org/GLM-5.3-Flash (320B / 18B-active multimodal MoE, glm5_next).
+# Weight-only NVFP4 on routed experts; attention, vision, routers stay BF16.
+# Does not fit one 121 GiB node. Unsloth FP8 is larger and is not this recipe.
+# Unsloth GGUF is still empty (llama.cpp has no glm5_next yet).
+#
+# glm5_next is not in stock vLLM yet. Use the dedicated image in G_VLLM_IMAGE
+# (vllm/vllm-openai:glm53-flash-arm64-cu130). Do not reuse the house DeepSeek
+# image. If native FP4 MoE kernels miss sm_121, add --moe-backend marlin
+# (and only then --enforce-eager) in sparkduet.env notes, not as the default.
+# Engine init can take an hour: VLLM_ENGINE_READY_TIMEOUT_S=3600.
+
+x-glm-common: &glm-common
+  image: ${G_VLLM_IMAGE}
+  network_mode: host
+  restart: unless-stopped
+  ipc: host
+  shm_size: 32gb
+  devices:
+    - /dev/infiniband:/dev/infiniband
+  cap_add:
+    - IPC_LOCK
+  volumes:
+    - ${HF_CACHE}:/root/.cache/huggingface
+    - ${MODEL_DIR}:${MODEL_DIR}:ro
+    - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}:/root/.cache/vllm
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - capabilities: ["gpu"]
+
+x-glm-env: &glm-env
+  HF_HOME: /root/.cache/huggingface
+  HF_HUB_OFFLINE: "${HF_HUB_OFFLINE}"
+  NCCL_IB_HCA: ${NCCL_IB_HCA}
+  NCCL_SOCKET_IFNAME: ${NCCL_SOCKET_IFNAME}
+  GLOO_SOCKET_IFNAME: ${GLOO_SOCKET_IFNAME:-${NCCL_SOCKET_IFNAME}}
+  NCCL_IB_GID_INDEX: "${NCCL_IB_GID_INDEX}"
+  VLLM_ENGINE_READY_TIMEOUT_S: "3600"
+  UCX_MEM_MMAP_HOOK_MODE: none
+  UCX_RCACHE_MAX_UNRELEASED: "1024"
+  TRITON_CACHE_DIR: /root/.cache/vllm/jit/triton
+  TILELANG_CACHE_DIR: /root/.cache/vllm/jit/tilelang
+  TORCH_FR_BUFFER_SIZE: "2000"
+  TORCH_NCCL_TRACE_BUFFER_SIZE: "2000"
+  TORCH_NCCL_DUMP_ON_TIMEOUT: "1"
+
+services:
+  glm-head:
+    <<: *glm-common
+    container_name: sparkduet-glm-head
+    environment:
+      <<: *glm-env
+      VLLM_HOST_IP: ${MASTER_ADDR}
+    command: >
+      ${G_MODEL}
+      --served-model-name ${G_SERVED_NAME}
+      --trust-remote-code
+      --tensor-parallel-size 2
+      --distributed-executor-backend mp
+      --nnodes 2 --node-rank 0
+      --master-addr ${MASTER_ADDR} --master-port ${MASTER_PORT}
+      --kv-cache-dtype ${G_KV_DTYPE}
+      --max-model-len ${G_MAX_MODEL_LEN}
+      --max-num-seqs ${G_MAX_NUM_SEQS}
+      --max-num-batched-tokens ${G_MAX_NUM_BATCHED_TOKENS}
+      --long-prefill-token-threshold ${G_LONG_PREFILL_TOKEN_THRESHOLD}
+      --enable-chunked-prefill
+      --async-scheduling
+      --enable-prefix-caching
+      --gpu-memory-utilization ${G_GPU_MEM_UTIL}
+      --enable-auto-tool-choice
+      --tool-call-parser glm47
+      --reasoning-parser glm45
+      --generation-config vllm
+      --host ${G_HOST}
+      --port ${G_PORT}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${G_PORT}/v1/models || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 40
+      start_period: 3600s
+
+  glm-worker:
+    <<: *glm-common
+    container_name: sparkduet-glm-worker
+    environment:
+      <<: *glm-env
+      VLLM_HOST_IP: ${WORKER_FABRIC_IP}
+    command: >
+      ${G_MODEL}
+      --served-model-name ${G_SERVED_NAME}
+      --trust-remote-code
+      --tensor-parallel-size 2
+      --distributed-executor-backend mp
+      --nnodes 2 --node-rank 1 --headless
+      --master-addr ${MASTER_ADDR} --master-port ${MASTER_PORT}
+      --kv-cache-dtype ${G_KV_DTYPE}
+      --max-model-len ${G_MAX_MODEL_LEN}
+      --max-num-seqs ${G_MAX_NUM_SEQS}
+      --max-num-batched-tokens ${G_MAX_NUM_BATCHED_TOKENS}
+      --long-prefill-token-threshold ${G_LONG_PREFILL_TOKEN_THRESHOLD}
+      --enable-chunked-prefill
+      --async-scheduling
+      --enable-prefix-caching
+      --gpu-memory-utilization ${G_GPU_MEM_UTIL}
+      --generation-config vllm

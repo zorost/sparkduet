@@ -6,7 +6,7 @@
 
 # SparkDuet
 
-**Run DeepSeek, Qwen, Flash-Next, and your own fine-tunes on two NVIDIA DGX Sparks:
+**Run DeepSeek, Qwen, Flash-Next, GLM-5.3-Flash, and your own fine-tunes on two NVIDIA DGX Sparks:
 one endpoint, lanes you can switch, honest numbers.**
 
 The operating layer the Lab runs on its own pair daily. Full write-up:
@@ -41,8 +41,9 @@ What that means in practice, on the same two boxes, in the same day:
   code and math [M-here], measured, artifacts committed.
 - Swap to **Qwen3.8-Flash-Next** (Lane N, TP=2, NVFP4) on the
   [`lane-n-flash-next`](https://github.com/zorost/sparkduet/tree/lane-n-flash-next)
-  branch: one click off the flagship, one click back. Recipe only; first
-  measured artifacts land after the first honest boot.
+  branch, or **GLM-5.3-Flash** (Lane G, TP=2, NVFP4) on
+  [`lane-g-glm-flash`](https://github.com/zorost/sparkduet/tree/lane-g-glm-flash).
+  One resident at a time. Recipes only until the first honest boot.
 - Keep a library of smaller models (**Qwen 27B** class, your merged
   fine-tunes) loading **on demand** without touching the flagship.
 - **Fine-tune** up to ~70B with QLoRA on the node that is not serving, with a
@@ -78,6 +79,7 @@ Everything in this repo follows from one number: a DGX Spark exposes
 | DeepSeek-V4-Flash-0731 FP8 (official) | ~156 GiB | **No** | **D only** (TP=2, both nodes) |
 | DeepSeek-V4-Flash-0731 GGUF Q2/Q3 | ~108 GiB | Yes, barely | F or on-demand swapper |
 | Qwen3.8-Flash-Next NVFP4 (RadixArk) | ~135 GiB | **No** | **N only** (TP=2, both nodes) |
+| GLM-5.3-Flash NVFP4 (LibertAIDAI) | ~181 GiB | **No** | **G only** (TP=2, both nodes) |
 | Qwen3.8-27B (NVFP4 / FP8) | ~29 GiB | Yes, easily | F (a replica per node), P |
 | Anything ≤ ~90 GiB | varies | Yes | F, P, or single-node |
 
@@ -104,8 +106,14 @@ Qwen3.8-Flash-Next NVFP4. Lives on
 [`lane-n-flash-next`](https://github.com/zorost/sparkduet/tree/lane-n-flash-next).
 `sparkduetctl.sh switch next` drains DeepSeek, stops it, then boots Flash-Next
 on the same fabric port; `switch depth` puts the flagship back. The two never
-share RAM. First boot needs physical access: the QSA prefill transient has
-wedged GB10 boxes. Weights: `prepare-models.sh --model flash-next`.
+share RAM. First boot needs physical access. Weights: `prepare-models.sh --model flash-next`.
+
+**Lane G, GLM (TP=2).** Same split, pointed at LibertAIDAI's NVFP4 of
+Z.ai GLM-5.3-Flash (320B / 18B-active, vision, MIT). Lives on
+[`lane-g-glm-flash`](https://github.com/zorost/sparkduet/tree/lane-g-glm-flash).
+~181 GiB, so TP=2 only. Dedicated vLLM image (`glm53-flash-arm64-cu130`):
+`glm5_next` is not in the house DeepSeek build. `switch glm` / `switch depth`.
+Weights: `prepare-models.sh --model glm-flash`.
 
 **Lane F, Fleet (DP=2).** Two independent replicas of a model that fits one
 node, one per Spark, load-balanced by the router. No cross-node collective on
@@ -306,6 +314,7 @@ sparkduet/
 │   ├── sparkduet.env.example  # every knob, one file, validated at start
 │   ├── lane-depth.compose.yml # TP=2 head+worker (the flagship lane)
 │   ├── lane-next.compose.yml  # TP=2 Flash-Next (lane-n-flash-next)
+│   ├── lane-glm.compose.yml   # TP=2 GLM-5.3-Flash (lane-g-glm-flash)
 │   ├── lane-fleet.compose.yml # DP=2 replicas (one-node-fit models)
 │   └── lane-pd.compose.yml    # prefill/decode split (experimental)
 ├── scripts/

@@ -116,12 +116,36 @@ Not the default flagship until a measured A/B on this pair says otherwise.
 - Engine: same pinned vLLM image as Lane D. GB10 QSA kernels were still
   landing on release day; first boot is a physical-access window.
 - Safety: no `--load-format dummy`, chunked prefill ≤1024, memory fraction
-  ≤0.82, n-gram table left on auto offload. MiaAI-Lab's dual-Spark SGLang
-  recipe is the measured hardware reference (64 tok/s [M-else]); this lane
-  keeps their memory rules and serves through vLLM so the house gateway
-  does not change.
+  ≤0.82, n-gram table left on auto offload. House vLLM, same gateway.
 - Stage: `./scripts/prepare-models.sh --model flash-next`
 - Serve: `./scripts/sparkduetctl.sh switch next`
+- Back: `./scripts/sparkduetctl.sh switch depth`
+
+## Swap lane: GLM-5.3-Flash NVFP4 (Lane G)
+
+Recipe on [`lane-g-glm-flash`](https://github.com/zorost/sparkduet/tree/lane-g-glm-flash).
+Not the default flagship until a measured A/B on this pair says otherwise.
+
+- Z.ai GLM-5.3-Flash: 320B MoE, **18B active**, hybrid sparse + linear
+  attention, vision tower, MIT. Native context 1M (`max_position_embeddings`
+  1048576). Released 26 Aug 2026.
+- Checkpoint: `LibertAIDAI/GLM-5.3-Flash-NVFP4`, rev `11d73216`, ~181 GiB
+  (`usedStorage` 194,692,661,135 bytes). Weight-only NVFP4 on routed experts
+  (311.65B params); attention, vision, routers, shared experts, MTP, embeddings
+  stay BF16. Cosine vs BF16 source ≈ 0.9967 [reported].
+- Does **not** fit one 121 GiB node. Lane G is TP=2 only. Never concurrent
+  with DeepSeek or Flash-Next: `switch glm` stops the incumbent first.
+- Unsloth `GLM-5.3-Flash-FP8` exists but is larger than this NVFP4 and is not
+  this recipe. `unsloth/GLM-5.3-Flash-GGUF` is a WIP stub: llama.cpp has no
+  `glm5_next` yet, so there is no house sleeper until that lands.
+- Engine: dedicated image `vllm/vllm-openai:glm53-flash-arm64-cu130`.
+  `glm5_next` is not in vLLM main (PR #53906). Vendor verified H100 / B200 /
+  GB200; sm_121 is unlisted. If native FP4 MoE kernels miss GB10, add
+  `--moe-backend marlin` (eager only as a last resort).
+- Parsers: `--tool-call-parser glm47`, `--reasoning-parser glm45`.
+  `VLLM_ENGINE_READY_TIMEOUT_S=3600`.
+- Stage: `./scripts/prepare-models.sh --model glm-flash`
+- Serve: `./scripts/sparkduetctl.sh switch glm`
 - Back: `./scripts/sparkduetctl.sh switch depth`
 
 ## When the answer is neither
@@ -139,6 +163,8 @@ Not the default flagship until a measured A/B on this pair says otherwise.
   (the official FP8 checkpoint fits ONLY there; see the fit rule in README).
 - Want the Flash-Next preview on the same pair → **Lane N**,
   `switch next`, then A/B against depth before changing the default.
+- Want GLM-5.3-Flash (vision, MIT, 18B active) on the same pair → **Lane G**,
+  `switch glm`, dedicated vLLM image, then A/B against depth.
 - Many concurrent agents, mixed prompt sizes → **Qwen3.8-27B or a quantized
   DeepSeek build, Lane F**, one-node-fit models only.
 - Vision-native or Apache-2.0-purist fleet, moderate context → **Qwen3.8-27B, Lane F**.

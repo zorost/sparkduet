@@ -33,11 +33,13 @@ validate_config() {
               P_DECODE_PORT P_PREFILL_PORT ROUTER_PORT D_HIGH_WATER_SEQS \
               N_PORT N_MAX_MODEL_LEN N_MAX_NUM_SEQS N_MAX_NUM_BATCHED_TOKENS \
               N_LONG_PREFILL_TOKEN_THRESHOLD N_MTP_NUM_TOKENS \
+              G_PORT G_MAX_MODEL_LEN G_MAX_NUM_SEQS G_MAX_NUM_BATCHED_TOKENS \
+              G_LONG_PREFILL_TOKEN_THRESHOLD G_MTP_NUM_TOKENS \
               LANE_MAX_INFLIGHT SPEC_WINDOW_S SPEC_MIN_DRAFT_TOKENS NCCL_IB_GID_INDEX; do
     v="$(validate_int "$knob" "${!knob:-}")" || exit 1
     [[ -n "$v" ]] && printf -v "$knob" '%s' "$v"
   done
-  case "${LANE_DEFAULT:-depth}" in depth|fleet|next|split) ;; *) die "LANE_DEFAULT invalid";; esac
+  case "${LANE_DEFAULT:-depth}" in depth|fleet|next|glm|split) ;; *) die "LANE_DEFAULT invalid";; esac
 }
 
 ssh_worker() { ssh -o BatchMode=yes -o ConnectTimeout=8 "${WORKER_USER}@${WORKER_HOST}" "$@"; }
@@ -79,6 +81,15 @@ doctor() {
       echo "WARN: Flash-Next weights not staged at $N_MODEL (prepare-models.sh --model flash-next)"
     fi
   fi
+  if [[ "${G_MODEL:0:1}" == "/" ]]; then
+    if [[ -f "$G_MODEL/config.json" ]]; then
+      ssh_worker "test -f '$G_MODEL/config.json'" \
+        || echo "WARN: worker missing GLM-5.3-Flash weights at $G_MODEL (prepare-models.sh --model glm-flash)"
+      echo "GLM-5.3-Flash weights present on head: $G_MODEL"
+    else
+      echo "WARN: GLM-5.3-Flash weights not staged at $G_MODEL (prepare-models.sh --model glm-flash)"
+    fi
+  fi
   # fabric: sysfs is always present on the host; ibstat usually is not
   if compgen -G "/sys/class/infiniband/*/ports/*/state" >/dev/null; then
     grep -l ACTIVE /sys/class/infiniband/*/ports/*/state >/dev/null 2>&1 \
@@ -101,7 +112,7 @@ doctor() {
   echo "doctor: OK"
 }
 
-lane_port() { case "$1" in depth) echo "$D_PORT";; fleet) echo "$F_PORT_A";; next) echo "${N_PORT:-$D_PORT}";; split) echo "$P_DECODE_PORT";; esac; }
+lane_port() { case "$1" in depth) echo "$D_PORT";; fleet) echo "$F_PORT_A";; next) echo "${N_PORT:-$D_PORT}";; glm) echo "${G_PORT:-$D_PORT}";; split) echo "$P_DECODE_PORT";; esac; }
 
 capture_running_state() { # automatic before every start: the revert plan
   local out="$ROOT/results/incumbent-$(date -u +%Y%m%d-%H%M)"
@@ -155,6 +166,12 @@ start_next() { # worker rank first, then head. Same fabric as depth.
   sleep 5
   compose_head   lane-next.compose.yml up -d next-head
 }
+start_glm() { # worker rank first, then head. Same fabric as depth.
+  [[ -f "${G_MODEL}/config.json" ]] || die "GLM-5.3-Flash weights missing at $G_MODEL (prepare-models.sh --model glm-flash)"
+  compose_worker lane-glm.compose.yml up -d glm-worker
+  sleep 5
+  compose_head   lane-glm.compose.yml up -d glm-head
+}
 start_fleet() {
   # Lane F profile resolution. Fit rule: one-node models only (see the compose header).
   local model="${QWEN_MODEL}" name="${QWEN_SERVED_NAME}"
@@ -190,7 +207,7 @@ wait_ready() { # port [timeout-steps]
 stop_all() {
   pkill -f "scripts/router.py" 2>/dev/null || true
   pkill -f "scripts/specadvisor.py" 2>/dev/null || true
-  for f in lane-depth lane-next lane-fleet lane-pd; do
+  for f in lane-depth lane-next lane-glm lane-fleet lane-pd; do
     compose_head "$f.compose.yml" down 2>/dev/null || true
     compose_worker "$f.compose.yml" down 2>/dev/null || true
   done
@@ -206,6 +223,9 @@ case "$cmd" in
               bash "$ROOT/scripts/warmup.sh"
           elif [[ "$arg" == next ]]; then
             D_PORT="${N_PORT:-$D_PORT}" DS_SERVED_NAME="$N_SERVED_NAME" D_MAX_NUM_SEQS="$N_MAX_NUM_SEQS" \
+              bash "$ROOT/scripts/warmup.sh"
+          elif [[ "$arg" == glm ]]; then
+            D_PORT="${G_PORT:-$D_PORT}" DS_SERVED_NAME="$G_SERVED_NAME" D_MAX_NUM_SEQS="$G_MAX_NUM_SEQS" \
               bash "$ROOT/scripts/warmup.sh"
           else
             D_PORT="$port" DS_SERVED_NAME="${QWEN_SERVED_NAME}" D_MAX_NUM_SEQS="${F_MAX_NUM_SEQS}" \
@@ -242,5 +262,5 @@ for m in json.load(sys.stdin)["data"]:
             --output "$ROOT/results";;
   capture-incumbent) load_env
           if [[ -n "${2:-}" ]]; then capture_incumbent "$2"; else capture_running_state; fi;;
-  *)      die "usage: sparkduetctl.sh start|stop|restart|revert|switch|status|logs|doctor|router|bench|capture-incumbent [depth|fleet|next|split]";;
+  *)      die "usage: sparkduetctl.sh start|stop|restart|revert|switch|status|logs|doctor|router|bench|capture-incumbent [depth|fleet|next|glm|split]";;
 esac
