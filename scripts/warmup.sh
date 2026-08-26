@@ -27,4 +27,27 @@ for shape in 1 6 20 45 100 200; do
     fire 32 "$c" "ordinary" || true   # client-default shape: no reasoning pins
   done
 done
+
+# Sampler kernels JIT once per sampling-mode family (greedy, top-p, top-k,
+# combined), so a first real chat that brings its own sampling params can
+# still pay a compile after the shape sweep above. Touch every family here,
+# at odd and even batch sizes, so the kernels land in the persisted Triton
+# cache during boot instead of mid-serve.
+fire_sampled() { # sampler-json concurrency label
+  local args="$1" c="$2" label="$3" i
+  for i in $(seq 1 "$c"); do
+    curl -fsS "http://127.0.0.1:${PORT}/v1/chat/completions" \
+      -H 'Content-Type: application/json' \
+      -d "{\"model\":\"$MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"warmup $label $i\"}],\"max_tokens\":16,$args}" \
+      >/dev/null 2>&1 &
+  done
+  wait
+}
+echo "warmup: sampler families at C=1..3"
+for c in 1 2 3; do
+  fire_sampled '"temperature":0'                           "$c" greedy   || true
+  fire_sampled '"temperature":0.7,"top_p":0.9'             "$c" top-p    || true
+  fire_sampled '"temperature":0.7,"top_k":40'              "$c" top-k    || true
+  fire_sampled '"temperature":0.8,"top_p":0.95,"top_k":50' "$c" combined || true
+done
 echo "warmup: done"

@@ -177,6 +177,7 @@ TTFT percentiles, acceptance deltas, minimum run length).
 | Worker unreachable over SSH, serving fine | management plane (WiFi flap, see FIELD-NOTES §1) | move operator SSH to wired/tailnet |
 | OOM at engine boot | `doctor` memory line | KV pool too big for what else runs on the node; lower `*_GPU_MEM_UTIL` |
 | Two nodes benchmark differently | `nvidia-smi -q -d CLOCK` both | one node is clock-capped by policy; artifacts record clocks |
+| Pair wedges mid-serve, containers alive but no tokens | flight-recorder dumps under `$VLLM_CACHE_DIR/nccl-flight/` on each node | a collective outlived the NCCL watchdog; `torchfrtrace trace_rank_*` names the stalled rank and collective, then restart the lane |
 
 ## 7. Updating anything
 
