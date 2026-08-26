@@ -2,7 +2,7 @@
 # prepare-models.sh, stage pinned weights on BOTH nodes, then serve offline.
 #
 # Two ways to get weights onto the worker:
-#   --model deepseek|qwen|both   download from HF into the cache on each node
+#   --model deepseek|qwen|flash-next|both   download from HF into the cache on each node
 #   --sync-worker <dir-name>     rsync an already-staged local dir head → worker
 #                                over the node-to-node link (no second download;
 #                                a 156 GiB checkpoint moves in ~6 min on 200G RoCE)
@@ -64,17 +64,40 @@ stage_qwen() {
     \"from huggingface_hub import snapshot_download; snapshot_download('$QWEN_MODEL')\""
 }
 
+stage_flash_next() {
+  local dest="${N_MODEL}"
+  local repo="RadixArk/Qwen3.8-Flash-Next-NVFP4"
+  local rev="${N_REVISION:-7b719225242aacd3dbd3f9407468c2ee9a9d2594}"
+  if [[ "${dest:0:1}" == "/" ]]; then
+    echo ">> $repo @ $rev -> $dest (then fabric sync)"
+    HF_HUB_OFFLINE=0 python3 - "$repo" "$rev" "$dest" <<'PY'
+import sys
+from huggingface_hub import snapshot_download
+repo, rev, dest = sys.argv[1], sys.argv[2], sys.argv[3]
+snapshot_download(repo_id=repo, revision=rev, local_dir=dest)
+print("downloaded:", dest)
+PY
+    [[ -f "$dest/config.json" ]] || die "Flash-Next download incomplete at $dest"
+    sync_worker "$(basename "$dest")"
+  else
+    fetch_one "$dest" "$rev" "$HF_CACHE"
+    ssh_worker "HF_HUB_OFFLINE=0 HF_HOME='$WORKER_HF_CACHE' python3 -c \
+      \"from huggingface_hub import snapshot_download; snapshot_download('$dest', revision='$rev')\""
+  fi
+}
+
 case "${1:-}" in
   --sync-worker) sync_worker "${2:-}";;
   --model)
     MODEL="${2:-both}"
     case "$MODEL" in
-      deepseek) stage_deepseek;;
-      qwen)     stage_qwen;;
-      both)     stage_deepseek; stage_qwen;;
-      *)        die "unknown --model $MODEL (deepseek|qwen|both)";;
+      deepseek)    stage_deepseek;;
+      qwen)        stage_qwen;;
+      flash-next|next) stage_flash_next;;
+      both)        stage_deepseek; stage_qwen;;
+      *)           die "unknown --model $MODEL (deepseek|qwen|flash-next|both)";;
     esac;;
-  *) die "usage: prepare-models.sh --model deepseek|qwen|both | --sync-worker <dir>";;
+  *) die "usage: prepare-models.sh --model deepseek|qwen|flash-next|both | --sync-worker <dir>";;
 esac
 
 echo "weights staged. Keep HF_HUB_OFFLINE=1 in sparkduet.env from here on."

@@ -31,11 +31,13 @@ validate_config() {
               F_MAX_MODEL_LEN F_MAX_NUM_SEQS F_MTP_NUM_TOKENS F_PORT_A F_PORT_B \
               P_PROMPT_THRESHOLD P_MAX_MODEL_LEN P_DECODE_MAX_NUM_SEQS P_MTP_NUM_TOKENS \
               P_DECODE_PORT P_PREFILL_PORT ROUTER_PORT D_HIGH_WATER_SEQS \
+              N_PORT N_MAX_MODEL_LEN N_MAX_NUM_SEQS N_MAX_NUM_BATCHED_TOKENS \
+              N_LONG_PREFILL_TOKEN_THRESHOLD N_MTP_NUM_TOKENS \
               LANE_MAX_INFLIGHT SPEC_WINDOW_S SPEC_MIN_DRAFT_TOKENS NCCL_IB_GID_INDEX; do
     v="$(validate_int "$knob" "${!knob:-}")" || exit 1
     [[ -n "$v" ]] && printf -v "$knob" '%s' "$v"
   done
-  case "${LANE_DEFAULT:-depth}" in depth|fleet|split) ;; *) die "LANE_DEFAULT invalid";; esac
+  case "${LANE_DEFAULT:-depth}" in depth|fleet|next|split) ;; *) die "LANE_DEFAULT invalid";; esac
 }
 
 ssh_worker() { ssh -o BatchMode=yes -o ConnectTimeout=8 "${WORKER_USER}@${WORKER_HOST}" "$@"; }
@@ -68,6 +70,15 @@ doctor() {
     ssh_worker "test -f '$DS_MODEL/config.json'" || die "worker missing weights at $DS_MODEL (run prepare-models.sh --sync-worker)"
     echo "weights present on both nodes: $DS_MODEL"
   fi
+  if [[ "${N_MODEL:0:1}" == "/" ]]; then
+    if [[ -f "$N_MODEL/config.json" ]]; then
+      ssh_worker "test -f '$N_MODEL/config.json'" \
+        || echo "WARN: worker missing Flash-Next weights at $N_MODEL (prepare-models.sh --model flash-next)"
+      echo "Flash-Next weights present on head: $N_MODEL"
+    else
+      echo "WARN: Flash-Next weights not staged at $N_MODEL (prepare-models.sh --model flash-next)"
+    fi
+  fi
   # fabric: sysfs is always present on the host; ibstat usually is not
   if compgen -G "/sys/class/infiniband/*/ports/*/state" >/dev/null; then
     grep -l ACTIVE /sys/class/infiniband/*/ports/*/state >/dev/null 2>&1 \
@@ -90,7 +101,7 @@ doctor() {
   echo "doctor: OK"
 }
 
-lane_port() { case "$1" in depth) echo "$D_PORT";; fleet) echo "$F_PORT_A";; split) echo "$P_DECODE_PORT";; esac; }
+lane_port() { case "$1" in depth) echo "$D_PORT";; fleet) echo "$F_PORT_A";; next) echo "${N_PORT:-$D_PORT}";; split) echo "$P_DECODE_PORT";; esac; }
 
 capture_running_state() { # automatic before every start: the revert plan
   local out="$ROOT/results/incumbent-$(date -u +%Y%m%d-%H%M)"
@@ -138,6 +149,12 @@ start_depth() { # worker rank first, then head
   sleep 5
   compose_head   lane-depth.compose.yml up -d depth-head
 }
+start_next() { # worker rank first, then head. Same fabric as depth.
+  [[ -f "${N_MODEL}/config.json" ]] || die "Flash-Next weights missing at $N_MODEL (prepare-models.sh --model flash-next)"
+  compose_worker lane-next.compose.yml up -d next-worker
+  sleep 5
+  compose_head   lane-next.compose.yml up -d next-head
+}
 start_fleet() {
   # Lane F profile resolution. Fit rule: one-node models only (see the compose header).
   local model="${QWEN_MODEL}" name="${QWEN_SERVED_NAME}"
@@ -173,7 +190,7 @@ wait_ready() { # port [timeout-steps]
 stop_all() {
   pkill -f "scripts/router.py" 2>/dev/null || true
   pkill -f "scripts/specadvisor.py" 2>/dev/null || true
-  for f in lane-depth lane-fleet lane-pd; do
+  for f in lane-depth lane-next lane-fleet lane-pd; do
     compose_head "$f.compose.yml" down 2>/dev/null || true
     compose_worker "$f.compose.yml" down 2>/dev/null || true
   done
@@ -186,6 +203,9 @@ case "$cmd" in
           [[ "${ROUTER_ENABLE:-0}" == 1 ]] && start_router
           if [[ "$arg" == depth ]]; then
             D_PORT="$D_PORT" DS_SERVED_NAME="$DS_SERVED_NAME" D_MAX_NUM_SEQS="$D_MAX_NUM_SEQS" \
+              bash "$ROOT/scripts/warmup.sh"
+          elif [[ "$arg" == next ]]; then
+            D_PORT="${N_PORT:-$D_PORT}" DS_SERVED_NAME="$N_SERVED_NAME" D_MAX_NUM_SEQS="$N_MAX_NUM_SEQS" \
               bash "$ROOT/scripts/warmup.sh"
           else
             D_PORT="$port" DS_SERVED_NAME="${QWEN_SERVED_NAME}" D_MAX_NUM_SEQS="${F_MAX_NUM_SEQS}" \
@@ -222,5 +242,5 @@ for m in json.load(sys.stdin)["data"]:
             --output "$ROOT/results";;
   capture-incumbent) load_env
           if [[ -n "${2:-}" ]]; then capture_incumbent "$2"; else capture_running_state; fi;;
-  *)      die "usage: sparkduetctl.sh start|stop|restart|revert|switch|status|logs|doctor|router|bench|capture-incumbent [depth|fleet|split]";;
+  *)      die "usage: sparkduetctl.sh start|stop|restart|revert|switch|status|logs|doctor|router|bench|capture-incumbent [depth|fleet|next|split]";;
 esac

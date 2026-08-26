@@ -6,8 +6,8 @@
 
 # SparkDuet
 
-**Run DeepSeek, Qwen, and your own fine-tunes on two NVIDIA DGX Sparks:
-one endpoint, four lanes, honest numbers.**
+**Run DeepSeek, Qwen, Flash-Next, and your own fine-tunes on two NVIDIA DGX Sparks:
+one endpoint, lanes you can switch, honest numbers.**
 
 The operating layer the Lab runs on its own pair daily. Full write-up:
 [zorost.com/ai-lab/local-ai/sparkduet](https://zorost.com/ai-lab/local-ai/sparkduet)
@@ -39,6 +39,10 @@ What that means in practice, on the same two boxes, in the same day:
 
 - Serve **DeepSeek-V4-Flash** (284B MoE) across both nodes at 68-72 tok/s on
   code and math [M-here], measured, artifacts committed.
+- Swap to **Qwen3.8-Flash-Next** (Lane N, TP=2, NVFP4) on the
+  [`lane-n-flash-next`](https://github.com/zorost/sparkduet/tree/lane-n-flash-next)
+  branch: one click off the flagship, one click back. Recipe only; first
+  measured artifacts land after the first honest boot.
 - Keep a library of smaller models (**Qwen 27B** class, your merged
   fine-tunes) loading **on demand** without touching the flagship.
 - **Fine-tune** up to ~70B with QLoRA on the node that is not serving, with a
@@ -73,6 +77,7 @@ Everything in this repo follows from one number: a DGX Spark exposes
 |---|---:|:---:|---|
 | DeepSeek-V4-Flash-0731 FP8 (official) | ~156 GiB | **No** | **D only** (TP=2, both nodes) |
 | DeepSeek-V4-Flash-0731 GGUF Q2/Q3 | ~108 GiB | Yes, barely | F or on-demand swapper |
+| Qwen3.8-Flash-Next NVFP4 (RadixArk) | ~135 GiB | **No** | **N only** (TP=2, both nodes) |
 | Qwen3.8-27B (NVFP4 / FP8) | ~29 GiB | Yes, easily | F (a replica per node), P |
 | Anything ≤ ~90 GiB | varies | Yes | F, P, or single-node |
 
@@ -93,6 +98,14 @@ raise `D_GPU_MEM_UTIL` and accept the KV/weights trade [M-else]. Worker-first
 launch, NCCL preflight gate, warm-up before first traffic, and two idempotent
 container-start hotfixes from the community recipe lineage (truncated tool
 calls, stops inside reasoning; see `patches/README.md`).
+
+**Lane N, Next (TP=2).** The same two-box split as Lane D, pointed at
+Qwen3.8-Flash-Next NVFP4. Lives on
+[`lane-n-flash-next`](https://github.com/zorost/sparkduet/tree/lane-n-flash-next).
+`sparkduetctl.sh switch next` drains DeepSeek, stops it, then boots Flash-Next
+on the same fabric port; `switch depth` puts the flagship back. The two never
+share RAM. First boot needs physical access: the QSA prefill transient has
+wedged GB10 boxes. Weights: `prepare-models.sh --model flash-next`.
 
 **Lane F, Fleet (DP=2).** Two independent replicas of a model that fits one
 node, one per Spark, load-balanced by the router. No cross-node collective on
@@ -140,6 +153,7 @@ $EDITOR sparkduet.env        # 8 required lines: addresses, interface names, pat
 ./scripts/nccl-check.sh --full          # proves a real 2-node all-reduce ≥ 8 GB/s
 ./scripts/prepare-models.sh --model deepseek   # or --sync-worker <dir> over the fabric
 ./scripts/sparkduetctl.sh start depth   # worker first, then head, then health gate
+./scripts/sparkduetctl.sh switch next   # drain DeepSeek, boot Flash-Next (lane-n-flash-next)
 ./scripts/warmup.sh                     # JIT & cuda-graph warm-up, do not skip
 python3 scripts/bench.py --suite standard --lane depth
 ```
@@ -204,7 +218,7 @@ this pair took loss from 2.12 to 0.21 in 81 seconds on the worker node.
 
 DeepSeek-V4-Flash is the flagship today, not forever. Model identity lives in
 env, not in code, and each complete recipe lives on a `model/*` branch
-(`model/deepseek-v4-flash-0731`, yours next). `main` always carries the
+(`model/deepseek-v4-flash-0731`, `lane-n-flash-next`, yours next). `main` always carries the
 scaffold plus the current flagship's recipe; the model branch is the pinned
 snapshot for that checkpoint, so it keeps working after `main` moves on to the
 next model. Today the two match. The 30-minute swap checklist, the retuning
@@ -291,6 +305,7 @@ sparkduet/
 ├── configs/
 │   ├── sparkduet.env.example  # every knob, one file, validated at start
 │   ├── lane-depth.compose.yml # TP=2 head+worker (the flagship lane)
+│   ├── lane-next.compose.yml  # TP=2 Flash-Next (lane-n-flash-next)
 │   ├── lane-fleet.compose.yml # DP=2 replicas (one-node-fit models)
 │   └── lane-pd.compose.yml    # prefill/decode split (experimental)
 ├── scripts/

@@ -1,0 +1,112 @@
+# Lane N, Next: vLLM TP=2 for Qwen3.8-Flash-Next NVFP4.
+# Same two-box topology as Lane D. Never concurrent with depth or fleet:
+# sparkduetctl.sh switch next drains and stops the incumbent first.
+#
+# Checkpoint: RadixArk/Qwen3.8-Flash-Next-NVFP4 (~135 GiB). Does not fit one
+# 121 GiB node. Official FP8 (~173 GiB) is tighter and is not this recipe.
+# Do not pass --load-format dummy: the n-gram table upcast wedges GB10.
+# Keep chunked-prefill batched tokens at or below 1024 until profiled.
+# Speculation stays off (N_MTP_NUM_TOKENS=0) until specadvisor has a window.
+
+x-next-common: &next-common
+  image: ${VLLM_IMAGE}
+  entrypoint: ["/sparkduet-patches/entry.sh"]
+  network_mode: host
+  restart: unless-stopped
+  ipc: host
+  shm_size: 32gb
+  devices:
+    - /dev/infiniband:/dev/infiniband
+  cap_add:
+    - IPC_LOCK
+  volumes:
+    - ${HF_CACHE}:/root/.cache/huggingface
+    - ${MODEL_DIR}:${MODEL_DIR}:ro
+    - ../patches:/sparkduet-patches:ro
+    - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}:/root/.cache/vllm
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - capabilities: ["gpu"]
+
+x-next-env: &next-env
+  HF_HOME: /root/.cache/huggingface
+  HF_HUB_OFFLINE: "${HF_HUB_OFFLINE}"
+  NCCL_IB_HCA: ${NCCL_IB_HCA}
+  NCCL_SOCKET_IFNAME: ${NCCL_SOCKET_IFNAME}
+  GLOO_SOCKET_IFNAME: ${GLOO_SOCKET_IFNAME:-${NCCL_SOCKET_IFNAME}}
+  NCCL_IB_GID_INDEX: "${NCCL_IB_GID_INDEX}"
+  VLLM_USE_BREAKABLE_CUDAGRAPH: "${VLLM_USE_BREAKABLE_CUDAGRAPH}"
+  UCX_MEM_MMAP_HOOK_MODE: none
+  UCX_RCACHE_MAX_UNRELEASED: "1024"
+  TRITON_CACHE_DIR: /root/.cache/vllm/jit/triton
+  TILELANG_CACHE_DIR: /root/.cache/vllm/jit/tilelang
+  B12X_CUTE_COMPILE_CACHE_DIR: /root/.cache/vllm/jit/b12x-cute
+  TORCH_FR_BUFFER_SIZE: "2000"
+  TORCH_NCCL_TRACE_BUFFER_SIZE: "2000"
+  TORCH_NCCL_DUMP_ON_TIMEOUT: "1"
+  TORCH_NCCL_DEBUG_INFO_TEMP_FILE: /root/.cache/vllm/nccl-flight/trace_rank_
+  TORCH_FR_DUMP_TEMP_FILE: /root/.cache/vllm/nccl-flight/trace_rank_
+
+services:
+  next-head:
+    <<: *next-common
+    container_name: sparkduet-next-head
+    environment:
+      <<: *next-env
+      VLLM_HOST_IP: ${MASTER_ADDR}
+    command: >
+      ${N_MODEL}
+      --served-model-name ${N_SERVED_NAME}
+      --trust-remote-code
+      --tensor-parallel-size 2
+      --distributed-executor-backend mp
+      --nnodes 2 --node-rank 0
+      --master-addr ${MASTER_ADDR} --master-port ${MASTER_PORT}
+      --kv-cache-dtype ${N_KV_DTYPE}
+      --max-model-len ${N_MAX_MODEL_LEN}
+      --max-num-seqs ${N_MAX_NUM_SEQS}
+      --max-num-batched-tokens ${N_MAX_NUM_BATCHED_TOKENS}
+      --long-prefill-token-threshold ${N_LONG_PREFILL_TOKEN_THRESHOLD}
+      --enable-chunked-prefill
+      --async-scheduling
+      --enable-prefix-caching
+      --gpu-memory-utilization ${N_GPU_MEM_UTIL}
+      --enable-auto-tool-choice
+      --tool-call-parser hermes
+      --reasoning-parser qwen3
+      --generation-config vllm
+      --host ${N_HOST}
+      --port ${N_PORT}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${N_PORT}/v1/models || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 1200s
+
+  next-worker:
+    <<: *next-common
+    container_name: sparkduet-next-worker
+    environment:
+      <<: *next-env
+      VLLM_HOST_IP: ${WORKER_FABRIC_IP}
+    command: >
+      ${N_MODEL}
+      --served-model-name ${N_SERVED_NAME}
+      --trust-remote-code
+      --tensor-parallel-size 2
+      --distributed-executor-backend mp
+      --nnodes 2 --node-rank 1 --headless
+      --master-addr ${MASTER_ADDR} --master-port ${MASTER_PORT}
+      --kv-cache-dtype ${N_KV_DTYPE}
+      --max-model-len ${N_MAX_MODEL_LEN}
+      --max-num-seqs ${N_MAX_NUM_SEQS}
+      --max-num-batched-tokens ${N_MAX_NUM_BATCHED_TOKENS}
+      --long-prefill-token-threshold ${N_LONG_PREFILL_TOKEN_THRESHOLD}
+      --enable-chunked-prefill
+      --async-scheduling
+      --enable-prefix-caching
+      --gpu-memory-utilization ${N_GPU_MEM_UTIL}
+      --generation-config vllm

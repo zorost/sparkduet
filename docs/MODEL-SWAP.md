@@ -13,7 +13,7 @@ doctor, bench, revert) is model-agnostic.
 - **`model/<name>`** branches hold one complete, tested recipe per model:
   env values, any lane-compose deltas, and the benchmark artifacts produced
   on that model. Examples: `model/deepseek-v4-flash-0731`,
-  `model/qwen3.8-27b`.
+  `model/qwen3.8-27b`, `lane-n-flash-next`.
 - When a new flagship lands, cut `model/<new-name>` from `main`, tune it
   there, commit its artifacts, and fast-forward `main` once it beats the
   incumbent on your workloads. The old branch stays checkable forever.
@@ -46,6 +46,7 @@ git checkout -b model/next-big-thing        # start the next recipe
    ```bash
    ./scripts/sparkduetctl.sh doctor && ./scripts/nccl-check.sh   # TP=2 only
    ./scripts/sparkduetctl.sh switch depth                        # drains, swaps, warms
+   ./scripts/sparkduetctl.sh switch next                         # Flash-Next, lane-n-flash-next
    ```
 
    `switch` captures the incumbent state first; `revert` restores it if the
