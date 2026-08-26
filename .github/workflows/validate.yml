@@ -38,6 +38,9 @@ jobs:
       - name: bench unit tests
         run: python3 scripts/test_bench.py
 
+      - name: lane-next wiring tests
+        run: python3 scripts/test_lane_next.py
+
       - name: diagrams are valid XML
         run: |
           python3 - <<'PY'

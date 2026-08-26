@@ -101,6 +101,29 @@ else the node runs) is the whole tuning story on unified memory.
   change; expect a slightly smaller footprint and NVFP4 GEMM throughput in
   exchange for the precision margin.
 
+## Swap lane: Qwen3.8-Flash-Next NVFP4 (Lane N)
+
+Recipe on [`lane-n-flash-next`](https://github.com/zorost/sparkduet/tree/lane-n-flash-next).
+Not the default flagship until a measured A/B on this pair says otherwise.
+
+- 125B MoE, **6B active**, plus a 51B n-gram table. RadixArk NVFP4 on disk is
+  ~135 GiB. Official FP8 is ~173 GiB and is not this recipe.
+- Does **not** fit one 121 GiB node. Lane N is TP=2 only, same fabric as
+  Lane D. Never concurrent with DeepSeek: `switch next` stops depth first.
+- Vendor card [reported]: ahead of DeepSeek-V4-Flash-0731 on SWE-bench Pro
+  (62.5 vs 56.0) and CoWorkBench (73.9 vs 45.1); behind on NL2Repo (48.1 vs
+  54.2). No [M-here] artifacts yet. Independent benches have not landed.
+- Engine: same pinned vLLM image as Lane D. GB10 QSA kernels were still
+  landing on release day; first boot is a physical-access window.
+- Safety: no `--load-format dummy`, chunked prefill ≤1024, memory fraction
+  ≤0.82, n-gram table left on auto offload. MiaAI-Lab's dual-Spark SGLang
+  recipe is the measured hardware reference (64 tok/s [M-else]); this lane
+  keeps their memory rules and serves through vLLM so the house gateway
+  does not change.
+- Stage: `./scripts/prepare-models.sh --model flash-next`
+- Serve: `./scripts/sparkduetctl.sh switch next`
+- Back: `./scripts/sparkduetctl.sh switch depth`
+
 ## When the answer is neither
 
 | Situation | Better answer |
@@ -114,6 +137,8 @@ else the node runs) is the whole tuning story on unified memory.
 
 - Bandwidth-bound decode + 1M agentic sessions → **DSV4-Flash-0731, Lane D**
   (the official FP8 checkpoint fits ONLY there; see the fit rule in README).
+- Want the Flash-Next preview on the same pair → **Lane N**,
+  `switch next`, then A/B against depth before changing the default.
 - Many concurrent agents, mixed prompt sizes → **Qwen3.8-27B or a quantized
   DeepSeek build, Lane F**, one-node-fit models only.
 - Vision-native or Apache-2.0-purist fleet, moderate context → **Qwen3.8-27B, Lane F**.
