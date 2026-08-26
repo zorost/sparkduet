@@ -25,10 +25,15 @@ services:
     volumes:
       - ${HF_CACHE}:/root/.cache/huggingface
       - ${MODEL_DIR}:${MODEL_DIR}:ro
+      # same persisted compile caches as Lane D: a replica recreate reuses
+      # FlashInfer autotune, torch.compile, and Triton kernels instead of
+      # re-JITting them against live traffic
+      - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}:/root/.cache/vllm
     environment:
       HF_HOME: /root/.cache/huggingface
       HF_HUB_OFFLINE: "${HF_HUB_OFFLINE}"
       VLLM_USE_BREAKABLE_CUDAGRAPH: "${VLLM_USE_BREAKABLE_CUDAGRAPH}"
+      TRITON_CACHE_DIR: /root/.cache/vllm/jit/triton
     deploy:
       resources:
         reservations:
