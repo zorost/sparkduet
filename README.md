@@ -6,10 +6,12 @@
 
 # SparkDuet
 
-**Run DeepSeek, Qwen, Flash-Next, GLM-5.3-Flash, and your own fine-tunes on two NVIDIA DGX Sparks:
-one endpoint, lanes you can switch, honest numbers.**
+**Four frontier residents on two NVIDIA DGX Sparks. One OpenAI port. One command to swap.**
 
-The operating layer the Lab runs on its own pair daily. Full write-up:
+DeepSeek-V4-Flash, Qwen 27B, Qwen3.8-Flash-Next, and GLM-5.3-Flash stay on disk.
+RAM holds one. You do not uninstall a 150 GiB checkpoint to try the next one,
+and you do not buy a second pair to keep a second MoE warm. The operating layer
+the Lab runs on its own pair daily. Full write-up:
 [zorost.com/ai-lab/local-ai/sparkduet](https://zorost.com/ai-lab/local-ai/sparkduet)
 
 [![CI](https://github.com/zorost/sparkduet/actions/workflows/validate.yml/badge.svg)](https://github.com/zorost/sparkduet/actions/workflows/validate.yml)
@@ -28,35 +30,46 @@ The operating layer the Lab runs on its own pair daily. Full write-up:
 </div>
 
 Two DGX Sparks give you 256 GB of unified GPU memory, a 200 Gb/s private
-interconnect, and a problem: every published recipe treats the pair as one big
-GPU for one model, all day, whether or not that is what your work needs.
-SparkDuet treats the pair as a small cluster with **lanes**: pick the topology
-per model and per workload, switch between them in one command, revert in one
-command, and measure everything in a way you can publish without
-embarrassment.
+interconnect, and a problem the rest of the field still solves the expensive
+way. Published recipes treat the pair as one big GPU for one model, all day.
+Owners then uninstall that model to try the next one, or they buy a second
+pair so DeepSeek and GLM never share a wall. SparkDuet treats the pair as a
+small cluster with **lanes**: pick the topology per model, switch in one
+command, revert in one command, and measure in a way you can publish.
 
-What that means in practice, on the same two boxes, in the same day:
+That is the product. The hardware is already a pair. The innovation is that
+the pair can host four residents and an on-demand library without becoming
+four appliances.
+
+What that means on the same two boxes, in the same day:
 
 - Serve **DeepSeek-V4-Flash** (284B MoE) across both nodes at 68-72 tok/s on
   code and math [M-here], measured, artifacts committed.
-- Swap to **Qwen3.8-Flash-Next** (Lane N, TP=2, NVFP4) on the
-  [`lane-n-flash-next`](https://github.com/zorost/sparkduet/tree/lane-n-flash-next)
-  branch, or **GLM-5.3-Flash** (Lane G, TP=2, NVFP4) on
+- `switch fleet` for two **Qwen 27B** replicas, one per box.
+- `switch next` for **Qwen3.8-Flash-Next** NVFP4 (Lane N, TP=2) on
+  [`lane-n-flash-next`](https://github.com/zorost/sparkduet/tree/lane-n-flash-next).
+- `switch glm` for **GLM-5.3-Flash** NVFP4 (Lane G, TP=2) on
   [`lane-g-glm-flash`](https://github.com/zorost/sparkduet/tree/lane-g-glm-flash).
-  One resident at a time. Recipes only until the first honest boot.
-- Keep a library of smaller models (**Qwen 27B** class, your merged
-  fine-tunes) loading **on demand** without touching the flagship.
-- **Fine-tune** up to ~70B with QLoRA on the node that is not serving, with a
-  3-minute smoke gate before you commit a weekend.
-- Put it all back **exactly the way it was** with one command if you change
-  your mind.
+- Keep the rest of the library (**GGUF**, merged fine-tunes) loading
+  **on demand** without touching the resident.
+- **Fine-tune** up to ~70B with QLoRA on the node that is not serving.
+- Put it all back **exactly the way it was** with `revert`.
 
-![SparkDuet architecture: clients hit one endpoint, the router pins or spills across Lane D (TP=2), Lane F (DP=2) and Lane P (split), running on two DGX Sparks joined by 200G RoCE](docs/diagrams/sparkduet-architecture.svg)
+One resident in unified memory. The other checkpoints sit on NVMe. Confirm is
+`/v1/models` plus a short completion, not the container `Up` line.
+
+![Four residents on two Sparks: clients hit one endpoint, one live lane, on-demand library on disk](docs/diagrams/sparkduet-four-on-two.svg)
+
+![One resident at a time: Off, Booting, then Depth, Fleet, Next, or GLM](docs/diagrams/sparkduet-swap-state.svg)
+
+![How the field spends a pair: uninstall, buy another pair, or switch](docs/diagrams/sparkduet-field.svg)
 
 ## Contents
 
 - [The fit rule](#the-fit-rule-read-this-before-anything-else)
 - [The lanes](#the-lanes)
+- [Wall clock to first token](#wall-clock-to-first-usable-token)
+- [The full recipe](#the-full-recipe)
 - [Quick start](#quick-start)
 - [The default flagship profile](#the-default-flagship-profile)
 - [Point your tools at it](#point-your-tools-at-it) (OpenCode, Cursor, Hermes, DeepSeek CLI)
@@ -104,16 +117,20 @@ calls, stops inside reasoning; see `patches/README.md`).
 **Lane N, Next (TP=2).** The same two-box split as Lane D, pointed at
 Qwen3.8-Flash-Next NVFP4. Lives on
 [`lane-n-flash-next`](https://github.com/zorost/sparkduet/tree/lane-n-flash-next).
-`sparkduetctl.sh switch next` drains DeepSeek, stops it, then boots Flash-Next
-on the same fabric port; `switch depth` puts the flagship back. The two never
-share RAM. First boot needs physical access. Weights: `prepare-models.sh --model flash-next`.
+Image `vllm/vllm-openai:qwen38-flash-next`. `next-ple-fp8.py` registers the
+FP8 PLE `weight_scale` as a buffer so ModelOpt hybrid checkpoints load.
+`switch next` drains the incumbent, then boots Flash-Next on the same fabric
+port; `switch depth` puts the flagship back. The two never share RAM.
+Weights: `prepare-models.sh --model flash-next`.
 
 **Lane G, GLM (TP=2).** Same split, pointed at LibertAIDAI's NVFP4 of
 Z.ai GLM-5.3-Flash (320B / 18B-active, vision, MIT). Lives on
 [`lane-g-glm-flash`](https://github.com/zorost/sparkduet/tree/lane-g-glm-flash).
-~181 GiB, so TP=2 only. Dedicated vLLM image (`glm53-flash-arm64-cu130`):
-`glm5_next` is not in the house DeepSeek build. `switch glm` / `switch depth`.
-Weights: `prepare-models.sh --model glm-flash`.
+~181 GiB, so TP=2 only. Dedicated image `vllm/vllm-openai:glm53-flash-arm64-cu130`.
+`glm-entry.sh` installs FlashInfer 0.6.18 and selects the SM90 NoPE MLA path.
+Stock 0.6.17 has no prefill backend for this checkpoint and completions
+collapse. `G_MAX_NUM_SEQS=8` is the scheduler cap (aggregate, not one stream).
+`switch glm` / `switch depth`. Weights: `prepare-models.sh --model glm-flash`.
 
 **Lane F, Fleet (DP=2).** Two independent replicas of a model that fits one
 node, one per Spark, load-balanced by the router. No cross-node collective on
@@ -138,6 +155,64 @@ engine's real acceptance counters and recommends the throughput-optimal draft
 depth `k` within the cuda-graph budget. Recommendations are logged and
 exposed; applying one is an explicit engine restart, because that is what
 changing `k` actually requires. No magic, no pretend hot-swap.
+
+## Wall clock to first usable token
+
+Confirm is a short completion on a new chat, not `docker ps` saying Up.
+Measured on the Lab pair on 27 Aug 2026. First-boot column is a cold or
+first-of-session load. Later is caches warm. Do not fire a second switch
+while Booting is still the state.
+
+![Wall clock to first usable token: first boot versus later warm boots](docs/diagrams/sparkduet-boot-times.svg)
+
+| Swap | First boot | Later (caches warm) | What you wait on |
+|---|---|---|---|
+| Qwen fleet | 3–6 min | 2–5 min | 27B replica per box. Fastest. |
+| DeepSeek | 5–8 min | 4–7 min | 156 GiB TP=2. Tonight: ~6 min to API. |
+| Flash-Next | 10–15 min | 8–12 min | 126 GiB + PLE + MoE autotune. Tonight: 12 min. |
+| GLM-5.3 | 20–60 min | 12–20 min | 181 GiB + FlashInfer 0.6.18. First honest boot is the long one. |
+
+After READY, run `./scripts/warmup.sh`, then open a **new** chat. Old threads
+that saw the previous engine die stay poisoned.
+
+## The full recipe
+
+Two DGX Sparks, QSFP cabled, SSH from head to worker, ~170 GiB free disk per
+node for the flagship plus room for the other residents you want to swap.
+
+```bash
+git clone https://github.com/zorost/sparkduet && cd sparkduet
+./install.sh                          # fabric IPs, sparkduet.env, worker sync, gates
+
+./scripts/sparkduetctl.sh doctor      # SSH, fabric, RDMA, disk, images
+./scripts/nccl-check.sh --full        # 2-node all-reduce ≥ 8 GB/s
+
+# Stage every resident you plan to swap. Weights stay. RAM holds one.
+./scripts/prepare-models.sh --model deepseek
+./scripts/prepare-models.sh --model qwen
+./scripts/prepare-models.sh --model flash-next
+./scripts/prepare-models.sh --model glm-flash
+
+./scripts/sparkduetctl.sh start depth # worker first, head, health gate
+./scripts/warmup.sh                   # do not skip
+# Point OpenCode, Chat, Hermes, Cursor at the OpenAI port in docs/RUNBOOK.md
+python3 scripts/bench.py --suite standard --lane depth
+
+# Swap. One at a time. Wait the table above. New chat after Confirm.
+./scripts/sparkduetctl.sh switch fleet
+./scripts/sparkduetctl.sh switch next    # lane-n-flash-next
+./scripts/sparkduetctl.sh switch glm     # lane-g-glm-flash
+./scripts/sparkduetctl.sh switch depth   # flagship back
+./scripts/sparkduetctl.sh revert         # undo the last start
+```
+
+`start` refuses until `doctor` passes. Every start captures the incumbent so
+`stop` and `revert` put the boxes back. If something you care about is already
+up, run `./scripts/sparkduetctl.sh capture-incumbent` first.
+
+Flash-Next first boot applies `patches/next-ple-fp8.py` at container start.
+GLM first boot applies `patches/glm-entry.sh` (FlashInfer 0.6.18) and
+`patches/glm53-sm90.py`. Both are idempotent. Details in `patches/README.md`.
 
 ## Quick start
 
@@ -340,8 +415,8 @@ sparkduet/
 │   ├── MODEL-SWAP.md          # the 30-minute swap checklist + branch convention
 │   ├── FIELD-NOTES.md         # deployment lessons from live clusters
 │   ├── RESEARCH.md            # the sourced evidence base
-│   └── diagrams/              # architecture, fit rule, honesty, Lab header
-├── patches/                   # container-start hotfixes (MiaAI-Lab lineage, credited)
+│   └── diagrams/              # four-on-two, swap state, field, boot times, fit, honesty
+├── patches/                   # DeepSeek hotfixes, Flash-Next PLE, GLM FlashInfer/SM90
 └── results/                   # dated benchmark artifacts (JSON + markdown)
 ```
 

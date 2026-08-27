@@ -113,8 +113,9 @@ Not the default flagship until a measured A/B on this pair says otherwise.
 - Vendor card [reported]: ahead of DeepSeek-V4-Flash-0731 on SWE-bench Pro
   (62.5 vs 56.0) and CoWorkBench (73.9 vs 45.1); behind on NL2Repo (48.1 vs
   54.2). No [M-here] artifacts yet. Independent benches have not landed.
-- Engine: same pinned vLLM image as Lane D. GB10 QSA kernels were still
-  landing on release day; first boot is a physical-access window.
+- Engine: `vllm/vllm-openai:qwen38-flash-next`. `patches/next-ple-fp8.py`
+  registers FP8 PLE `weight_scale` as a buffer so the ModelOpt hybrid
+  checkpoint loads. First patched boot on this pair: 12 min to tokens.
 - Safety: no `--load-format dummy`, chunked prefill ≤1024, memory fraction
   ≤0.82, n-gram table left on auto offload. House vLLM, same gateway.
 - Stage: `./scripts/prepare-models.sh --model flash-next`
@@ -139,9 +140,15 @@ Not the default flagship until a measured A/B on this pair says otherwise.
   this recipe. `unsloth/GLM-5.3-Flash-GGUF` is a WIP stub: llama.cpp has no
   `glm5_next` yet, so there is no house sleeper until that lands.
 - Engine: dedicated image `vllm/vllm-openai:glm53-flash-arm64-cu130`.
-  `glm5_next` is not in vLLM main (PR #53906). Vendor verified H100 / B200 /
-  GB200; sm_121 is unlisted. If native FP4 MoE kernels miss GB10, add
-  `--moe-backend marlin` (eager only as a last resort).
+  `glm5_next` is not in vLLM main (PR #53906). This checkpoint is NoPE
+  (`qk_rope_head_dim=0`); stock SM120 packed MLA dies with pe_dim must be 64.
+  `glm-entry.sh` installs FlashInfer 0.6.18 (`ckv_scale_arr`) and
+  `glm53-sm90.py` selects SM90 sparse-MLA. Stock 0.6.17 has no prefill
+  backend and completions collapse to token 1023. Working house flags:
+  `G_KV_DTYPE=fp8_e4m3`, `G_MAX_NUM_SEQS=8` (aggregate, not one stream).
+  `start_glm` drops page cache and runs `cache_flusher.sh` through load.
+  First honest boot is 20–60 min; later 12–20. TP4 1M-pool recipes need
+  four boxes; this pair stays TP=2.
 - Parsers: `--tool-call-parser glm47`, `--reasoning-parser glm45`.
   `VLLM_ENGINE_READY_TIMEOUT_S=3600`.
 - Stage: `./scripts/prepare-models.sh --model glm-flash`

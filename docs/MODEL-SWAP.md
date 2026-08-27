@@ -51,7 +51,11 @@ git checkout -b model/next-big-thing        # start the next recipe
    ```
 
    `switch` captures the incumbent state first; `revert` restores it if the
-   new model disappoints.
+   new model disappoints. Wall clock to first usable token (Lab pair,
+   27 Aug 2026): fleet 3–6 min first / 2–5 later; DeepSeek 5–8 / 4–7
+   (tonight ~6 min to API); Flash-Next 10–15 / 8–12 (tonight 12 min);
+   GLM-5.3 20–60 first honest / 12–20 later. Confirm is a short completion
+   on a new chat after `warmup.sh`, not `docker ps`.
 5. **Read the boot line, not the README.** `Available KV cache memory` and
    `GPU KV cache size ... tokens` tell you what your settings actually
    bought. Record them.

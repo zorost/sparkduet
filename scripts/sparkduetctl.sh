@@ -34,7 +34,8 @@ validate_config() {
               N_PORT N_MAX_MODEL_LEN N_MAX_NUM_SEQS N_MAX_NUM_BATCHED_TOKENS \
               N_LONG_PREFILL_TOKEN_THRESHOLD N_MTP_NUM_TOKENS \
               G_PORT G_MAX_MODEL_LEN G_MAX_NUM_SEQS G_MAX_NUM_BATCHED_TOKENS \
-              G_LONG_PREFILL_TOKEN_THRESHOLD G_MTP_NUM_TOKENS \
+              G_LONG_PREFILL_TOKEN_THRESHOLD G_BLOCK_SIZE G_KV_CACHE_MEMORY \
+              G_MTP_NUM_TOKENS \
               LANE_MAX_INFLIGHT SPEC_WINDOW_S SPEC_MIN_DRAFT_TOKENS NCCL_IB_GID_INDEX; do
     v="$(validate_int "$knob" "${!knob:-}")" || exit 1
     [[ -n "$v" ]] && printf -v "$knob" '%s' "$v"
@@ -80,6 +81,11 @@ doctor() {
     else
       echo "WARN: Flash-Next weights not staged at $N_MODEL (prepare-models.sh --model flash-next)"
     fi
+    local nh nw
+    nh=$(docker image inspect "${N_VLLM_IMAGE:-}" --format '{{.Id}}' 2>/dev/null || true)
+    nw=$(ssh_worker "docker image inspect '${N_VLLM_IMAGE:-}' --format '{{.Id}}'" 2>/dev/null || true)
+    [[ -n "$nh" ]] || echo "WARN: head missing Flash-Next image ${N_VLLM_IMAGE:-unset}"
+    [[ -n "$nw" ]] || echo "WARN: worker missing Flash-Next image ${N_VLLM_IMAGE:-unset}"
   fi
   if [[ "${G_MODEL:0:1}" == "/" ]]; then
     if [[ -f "$G_MODEL/config.json" ]]; then
@@ -89,6 +95,11 @@ doctor() {
     else
       echo "WARN: GLM-5.3-Flash weights not staged at $G_MODEL (prepare-models.sh --model glm-flash)"
     fi
+    local gh gw
+    gh=$(docker image inspect "${G_VLLM_IMAGE:-}" --format '{{.Id}}' 2>/dev/null || true)
+    gw=$(ssh_worker "docker image inspect '${G_VLLM_IMAGE:-}' --format '{{.Id}}'" 2>/dev/null || true)
+    [[ -n "$gh" ]] || echo "WARN: head missing GLM image ${G_VLLM_IMAGE:-unset}"
+    [[ -n "$gw" ]] || echo "WARN: worker missing GLM image ${G_VLLM_IMAGE:-unset}"
   fi
   # fabric: sysfs is always present on the host; ibstat usually is not
   if compgen -G "/sys/class/infiniband/*/ports/*/state" >/dev/null; then
@@ -162,14 +173,30 @@ start_depth() { # worker rank first, then head
 }
 start_next() { # worker rank first, then head. Same fabric as depth.
   [[ -f "${N_MODEL}/config.json" ]] || die "Flash-Next weights missing at $N_MODEL (prepare-models.sh --model flash-next)"
+  local nh nw
+  nh=$(docker image inspect "${N_VLLM_IMAGE}" --format '{{.Id}}' 2>/dev/null || true)
+  nw=$(ssh_worker "docker image inspect '${N_VLLM_IMAGE}' --format '{{.Id}}'" 2>/dev/null || true)
+  [[ -n "$nh" ]] || die "head missing image $N_VLLM_IMAGE (docker pull it)"
+  [[ -n "$nw" ]] || die "worker missing image $N_VLLM_IMAGE (docker pull it there)"
   compose_worker lane-next.compose.yml up -d next-worker
   sleep 5
   compose_head   lane-next.compose.yml up -d next-head
 }
 start_glm() { # worker rank first, then head. Same fabric as depth.
   [[ -f "${G_MODEL}/config.json" ]] || die "GLM-5.3-Flash weights missing at $G_MODEL (prepare-models.sh --model glm-flash)"
+  local gh gw
+  gh=$(docker image inspect "${G_VLLM_IMAGE}" --format '{{.Id}}' 2>/dev/null || true)
+  gw=$(ssh_worker "docker image inspect '${G_VLLM_IMAGE}' --format '{{.Id}}'" 2>/dev/null || true)
+  [[ -n "$gh" ]] || die "head missing image $G_VLLM_IMAGE (docker pull it)"
+  [[ -n "$gw" ]] || die "worker missing image $G_VLLM_IMAGE (docker pull it there)"
+  # GB10: NVRM needs MemFree for the KV slab. Weight load refills page cache.
+  sudo -n sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches' || true
+  ssh_worker "sudo -n sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'" || true
+  mkdir -p "$ROOT/results"
+  nohup "$ROOT/scripts/cache_flusher.sh" >>"$ROOT/results/cache-flusher.log" 2>&1 &
+  ssh_worker "mkdir -p '${SPARKDUET_DIR:-$ROOT}/results'; nohup '${SPARKDUET_DIR:-$ROOT}/scripts/cache_flusher.sh' >>'${SPARKDUET_DIR:-$ROOT}/results/cache-flusher.log' 2>&1 &" || true
   compose_worker lane-glm.compose.yml up -d glm-worker
-  sleep 5
+  sleep 20
   compose_head   lane-glm.compose.yml up -d glm-head
 }
 start_fleet() {
@@ -195,10 +222,28 @@ start_router() {
   echo "router on :${ROUTER_PORT}"
 }
 
+refresh_pickers() {
+  # 9Router lists whatever :30000 is serving. This pushes that name into
+  # OpenCode, Chat, Hermes, and dsh so a swap is the house model everywhere.
+  if [[ -x /usr/local/bin/zorost-apply-house-catalog.py ]]; then
+    sudo -n python3 /usr/local/bin/zorost-apply-house-catalog.py \
+      || python3 /usr/local/bin/zorost-apply-house-catalog.py \
+      || echo "WARN: pickers not refreshed; the 10-minute timer will follow"
+  fi
+}
+
 wait_ready() { # port [timeout-steps]
-  local port="$1" n=0 max="${2:-240}"
+  local port="$1" n=0 max="${2:-240}" looping
   echo "waiting for :$port (multi-node load can take 10–20 min on first boot)"
   until curl -fsS "http://127.0.0.1:${port}/v1/models" >/dev/null 2>&1; do
+    looping=$(docker ps --filter "name=sparkduet-" --format '{{.Names}} {{.Status}}' | grep Restarting || true)
+    if [[ -n "$looping" ]]; then
+      echo "lane is restart-looping:" >&2
+      echo "$looping" >&2
+      docker logs --tail 30 sparkduet-next-head 2>&1 | tail -20 >&2 || true
+      docker logs --tail 20 sparkduet-glm-head 2>&1 | tail -10 >&2 || true
+      die "lane crash-looped while waiting for :$port"
+    fi
     n=$((n+1)); [[ $n -gt $max ]] && die "timeout waiting for :$port"; sleep 15
   done
   curl -fsS "http://127.0.0.1:${port}/v1/models" && echo
@@ -230,7 +275,8 @@ case "$cmd" in
           else
             D_PORT="$port" DS_SERVED_NAME="${QWEN_SERVED_NAME}" D_MAX_NUM_SEQS="${F_MAX_NUM_SEQS}" \
               bash "$ROOT/scripts/warmup.sh"
-          fi;;
+          fi
+          refresh_pickers;;
   stop)   load_env; stop_all;;
   restart) load_env; stop_all; sleep 3; "$0" start "$arg";;
   revert) revert;;

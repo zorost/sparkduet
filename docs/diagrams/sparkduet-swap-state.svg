@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="swap-state-title swap-state-desc">
+        <title id="swap-state-title">One resident at a time</title>
+        <desc id="swap-state-desc">State machine for SparkDuet lane swap: Off to Booting to one of Depth, Fleet, Next, or GLM. Only one resident is live. Switch returns any resident to Booting. Stop returns to Off.</desc>
+        <defs>
+          <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5A6672"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#FF3621"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#EEF1F4"/>
+
+        <!-- Transitions first -->
+        <line x1="56" y1="200" x2="120" y2="200" stroke="#5A6672" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="280" y1="200" x2="360" y2="200" stroke="#FF3621" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+
+        <path d="M 392,248 V 320 Q 392,328 384,328 H 208 Q 200,328 200,336 V 400" fill="none" stroke="#5A6672" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="440" y1="248" x2="440" y2="400" stroke="#5A6672" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 480,248 V 336 Q 480,344 488,344 H 672 Q 680,344 680,352 V 400" fill="none" stroke="#5A6672" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <path d="M 512,248 V 352 Q 512,360 520,360 H 912 Q 920,360 920,368 V 400" fill="none" stroke="#5A6672" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Labels -->
+        <rect x="140" y="176" width="52" height="12" rx="2" fill="#EEF1F4"/>
+        <text x="166" y="186" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">START</text>
+
+        <rect x="288" y="176" width="68" height="12" rx="2" fill="#EEF1F4"/>
+        <text x="322" y="186" fill="#FF3621" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SWITCH</text>
+
+        <rect x="248" y="304" width="72" height="12" rx="2" fill="#EEF1F4"/>
+        <text x="284" y="314" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">READY D</text>
+
+        <rect x="400" y="304" width="72" height="12" rx="2" fill="#EEF1F4"/>
+        <text x="436" y="314" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">READY F</text>
+
+        <rect x="560" y="320" width="72" height="12" rx="2" fill="#EEF1F4"/>
+        <text x="596" y="330" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">READY N</text>
+
+        <rect x="800" y="320" width="72" height="12" rx="2" fill="#EEF1F4"/>
+        <text x="836" y="330" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">READY G</text>
+
+        <!-- Start -->
+        <circle cx="48" cy="200" r="6" fill="#11161D"/>
+
+        <!-- Off -->
+        <rect x="120" y="160" width="160" height="80" rx="8" fill="#EEF1F4"/>
+        <rect x="120" y="160" width="160" height="80" rx="8" fill="rgba(17,22,29,0.05)" stroke="#5A6672" stroke-width="1"/>
+        <text x="200" y="196" fill="#11161D" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Off</text>
+        <text x="200" y="216" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">weights on disk</text>
+
+        <!-- Booting (focal) -->
+        <rect x="360" y="160" width="160" height="88" rx="8" fill="#EEF1F4"/>
+        <rect x="360" y="160" width="160" height="88" rx="8" fill="rgba(255,54,33,0.08)" stroke="#FF3621" stroke-width="1.2"/>
+        <text x="440" y="196" fill="#11161D" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Booting</text>
+        <text x="440" y="216" fill="#FF3621" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">wait for Confirm</text>
+        <text x="440" y="232" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">then warmup.sh</text>
+
+        <!-- Depth -->
+        <rect x="120" y="400" width="160" height="80" rx="8" fill="#EEF1F4"/>
+        <rect x="120" y="400" width="160" height="80" rx="8" fill="#FFFFFF" stroke="#11161D" stroke-width="1"/>
+        <text x="200" y="436" fill="#11161D" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Depth</text>
+        <text x="200" y="456" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">DeepSeek · TP=2</text>
+
+        <!-- Fleet -->
+        <rect x="360" y="400" width="160" height="80" rx="8" fill="#EEF1F4"/>
+        <rect x="360" y="400" width="160" height="80" rx="8" fill="#FFFFFF" stroke="#11161D" stroke-width="1"/>
+        <text x="440" y="436" fill="#11161D" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Fleet</text>
+        <text x="440" y="456" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Qwen 27B · DP=2</text>
+
+        <!-- Next -->
+        <rect x="600" y="400" width="160" height="80" rx="8" fill="#EEF1F4"/>
+        <rect x="600" y="400" width="160" height="80" rx="8" fill="#FFFFFF" stroke="#11161D" stroke-width="1"/>
+        <text x="680" y="436" fill="#11161D" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Next</text>
+        <text x="680" y="456" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Flash-Next · TP=2</text>
+
+        <!-- GLM -->
+        <rect x="840" y="400" width="160" height="80" rx="8" fill="#EEF1F4"/>
+        <rect x="840" y="400" width="160" height="80" rx="8" fill="#FFFFFF" stroke="#11161D" stroke-width="1"/>
+        <text x="920" y="436" fill="#11161D" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">GLM</text>
+        <text x="920" y="456" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">GLM-5.3 · TP=2</text>
+
+        <!-- Annotation -->
+        <text x="640" y="560" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif" text-anchor="middle">Any resident returns to Booting on switch. Stop returns every lane to Off.</text>
+        <text x="640" y="584" fill="#8A939C" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">* → Booting [switch]   ·   * → Off [stop]   ·   Confirm = /v1/models + a short completion</text>
+
+        <!-- Legend -->
+        <line x1="40" y1="652" x2="1240" y2="652" stroke="rgba(17,22,29,0.10)" stroke-width="0.8"/>
+        <text x="40" y="676" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="140" y="664" width="16" height="12" rx="2" fill="rgba(255,54,33,0.08)" stroke="#FF3621" stroke-width="1"/>
+        <text x="164" y="674" fill="#5A6672" font-size="8" font-family="'Geist', sans-serif">The wait you feel</text>
+        <rect x="360" y="664" width="16" height="12" rx="2" fill="#FFFFFF" stroke="#11161D" stroke-width="1"/>
+        <text x="384" y="674" fill="#5A6672" font-size="8" font-family="'Geist', sans-serif">One live resident</text>
+        <circle cx="580" cy="670" r="5" fill="#11161D"/>
+        <text x="592" y="674" fill="#5A6672" font-size="8" font-family="'Geist', sans-serif">Start</text>
+      </svg>

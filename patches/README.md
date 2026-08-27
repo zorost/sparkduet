@@ -1,4 +1,10 @@
-# Container-start hotfixes (Lane D)
+# Container-start hotfixes
+
+Lane D patches run from `entry.sh`. Lane N and Lane G have their own
+entrypoints. Every patch is idempotent and no-ops if the file or symbol it
+targets is gone.
+
+## Lane D (DeepSeek)
 
 Applied by `entry.sh` before `vllm serve` starts, on both ranks. Both are
 idempotent and gated to the pinned engine image's exact source; on a new
@@ -18,3 +24,24 @@ docker exec sparkduet-depth-head \
 
 Opt-outs are the originals' env switches (`DSPARK_SUPPRESS_STOPS_IN_REASONING=0`
 to let stops fire inside reasoning). Full credit in `../CREDITS.md`.
+
+## Lane N (Flash-Next)
+
+Applied by `next-entry.sh` before `vllm serve`.
+
+| File | What it fixes | Origin |
+|---|---|---|
+| `next-ple-fp8.py` | RadixArk ModelOpt NVFP4 + FP8 PLE. Stock loader only accepts `Fp8Config` for the n-gram table, then dies on missing `ngram_embedding.weight_scale`. The patch detects `ple_embedding_dtype=float8_e4m3fn` and keeps the scale as a buffer. | House, 27 Aug 2026. First honest boot on this pair. |
+
+## Lane G (GLM-5.3-Flash)
+
+Applied by `glm-entry.sh` before `vllm serve`.
+
+| File | What it fixes | Origin |
+|---|---|---|
+| `glm-entry.sh` | Official `glm53-flash-arm64-cu130` ships FlashInfer 0.6.17. Without 0.6.18 (`ckv_scale_arr`), sparse MLA has no prefill backend and completions collapse to token 1023 (`lock`). Installs 0.6.18, drops `flashinfer-jit-cache` (SM120 cubins fight the SM90 path). | House, after the 0.6.17 lock. |
+| `glm53-sm90.py` | Checkpoint is NoPE (`qk_rope_head_dim=0`). Stock SM120 packed MLA dies with `pe_dim` must be 64. Forces the SM90 sparse-MLA path. | House, same boot. |
+
+`G_KV_DTYPE=fp8_e4m3` and `G_MAX_NUM_SEQS=8` live in `sparkduet.env`. Eight-way
+aggregate is not one-stream speed. First honest GLM boot is the long one
+(20–60 min); later boots 12–20 min.

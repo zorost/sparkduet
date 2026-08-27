@@ -4,8 +4,11 @@ People run serious inference on 2x DGX Spark today because a small group of
 builders did the hard work in public: MiaAI-Lab's DeepSeek recipe, the Anemll
 image line, Keys' concurrency patches, tonyd2wild's NVFP4 work, entrpi's
 single-node engine. SparkDuet exists because of that work, not instead of it.
-Lane D literally runs the same image lineage they proved. This page states
-where each project is the right choice, and what SparkDuet adds on top.
+Lane D literally runs the same image lineage they proved. What those recipes
+do not do is keep four residents on the same pair: DeepSeek, Qwen 27B,
+Flash-Next, and GLM-5.3 stay on disk, RAM holds one, and switch is a command
+instead of an uninstall or a second pair. This page states where each project
+is the right choice, and what SparkDuet adds on top.
 
 ![Where each recipe fits: single deep recipe vs an operating model for the pair](diagrams/sparkduet-vs-field.svg)
 
