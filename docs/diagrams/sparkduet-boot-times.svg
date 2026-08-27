@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="boot-bar-title boot-bar-desc">
+        <title id="boot-bar-title">Wall clock to first usable token</title>
+        <desc id="boot-bar-desc">Grouped bar chart of SparkDuet swap times. First boot versus later warm boots for Qwen fleet, DeepSeek, Flash-Next, and GLM-5.3. Values in minutes to a short completion.</desc>
+        <defs>
+          <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style></defs>
+
+        <rect width="100%" height="100%" fill="#EEF1F4"/>
+
+        <text transform="rotate(-90 24 320)" x="24" y="320" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em" text-anchor="middle">MINUTES TO FIRST TOKEN</text>
+
+        <!-- Grid 0, 15, 30, 45, 60 → y 560, 440, 320, 200, 80 -->
+        <line x1="80" y1="560" x2="1200" y2="560" stroke="rgba(17,22,29,0.25)" stroke-width="1"/>
+        <line x1="80" y1="440" x2="1200" y2="440" stroke="rgba(17,22,29,0.08)" stroke-width="0.8"/>
+        <line x1="80" y1="320" x2="1200" y2="320" stroke="rgba(17,22,29,0.08)" stroke-width="0.8"/>
+        <line x1="80" y1="200" x2="1200" y2="200" stroke="rgba(17,22,29,0.08)" stroke-width="0.8"/>
+        <line x1="80" y1="80" x2="1200" y2="80" stroke="rgba(17,22,29,0.08)" stroke-width="0.8"/>
+        <line x1="80" y1="80" x2="80" y2="560" stroke="rgba(17,22,29,0.25)" stroke-width="1"/>
+
+        <text x="72" y="564" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">0</text>
+        <text x="72" y="444" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">15</text>
+        <text x="72" y="324" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">30</text>
+        <text x="72" y="204" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">45</text>
+        <text x="72" y="84" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">60</text>
+
+        <!-- Fleet first 4.5 → h=36 y=524 -->
+        <rect x="160" y="524" width="72" height="36" fill="#EEF1F4"/>
+        <rect x="160" y="524" width="72" height="36" fill="rgba(255,54,33,0.12)" stroke="#FF3621" stroke-width="1"/>
+        <text x="196" y="516" fill="#FF3621" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">4.5</text>
+        <!-- Fleet later 3.5 → h=28 y=532 -->
+        <rect x="240" y="532" width="72" height="28" fill="#EEF1F4"/>
+        <rect x="240" y="532" width="72" height="28" fill="rgba(90,102,114,0.15)" stroke="#5A6672" stroke-width="1"/>
+        <text x="276" y="524" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">3.5</text>
+        <text x="236" y="588" fill="#11161D" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Qwen fleet</text>
+        <text x="236" y="608" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">3–6 · 2–5</text>
+
+        <!-- DeepSeek first 6.5 → h=52 y=508 -->
+        <rect x="420" y="508" width="72" height="52" fill="#EEF1F4"/>
+        <rect x="420" y="508" width="72" height="52" fill="rgba(255,54,33,0.12)" stroke="#FF3621" stroke-width="1"/>
+        <text x="456" y="500" fill="#FF3621" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">6.5</text>
+        <!-- DeepSeek later 5.5 → h=44 y=516 -->
+        <rect x="500" y="516" width="72" height="44" fill="#EEF1F4"/>
+        <rect x="500" y="516" width="72" height="44" fill="rgba(90,102,114,0.15)" stroke="#5A6672" stroke-width="1"/>
+        <text x="536" y="508" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">5.5</text>
+        <text x="496" y="588" fill="#11161D" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">DeepSeek</text>
+        <text x="496" y="608" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">5–8 · 4–7</text>
+
+        <!-- Next first 12 → h=96 y=464 -->
+        <rect x="680" y="464" width="72" height="96" fill="#EEF1F4"/>
+        <rect x="680" y="464" width="72" height="96" fill="rgba(255,54,33,0.12)" stroke="#FF3621" stroke-width="1"/>
+        <text x="716" y="456" fill="#FF3621" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">12</text>
+        <!-- Next later 10 → h=80 y=480 -->
+        <rect x="760" y="480" width="72" height="80" fill="#EEF1F4"/>
+        <rect x="760" y="480" width="72" height="80" fill="rgba(90,102,114,0.15)" stroke="#5A6672" stroke-width="1"/>
+        <text x="796" y="472" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">10</text>
+        <text x="756" y="588" fill="#11161D" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Flash-Next</text>
+        <text x="756" y="608" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">10–15 · 8–12</text>
+
+        <!-- GLM first 40 → h=320 y=240 -->
+        <rect x="940" y="240" width="72" height="320" fill="#EEF1F4"/>
+        <rect x="940" y="240" width="72" height="320" fill="rgba(255,54,33,0.12)" stroke="#FF3621" stroke-width="1"/>
+        <text x="976" y="232" fill="#FF3621" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">40</text>
+        <!-- GLM later 16 → h=128 y=432 -->
+        <rect x="1020" y="432" width="72" height="128" fill="#EEF1F4"/>
+        <rect x="1020" y="432" width="72" height="128" fill="rgba(90,102,114,0.15)" stroke="#5A6672" stroke-width="1"/>
+        <text x="1056" y="424" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">16</text>
+        <text x="1016" y="588" fill="#11161D" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">GLM-5.3</text>
+        <text x="1016" y="608" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">20–60 · 12–20</text>
+
+        <line x1="40" y1="652" x2="1240" y2="652" stroke="rgba(17,22,29,0.10)" stroke-width="0.8"/>
+        <text x="40" y="676" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="140" y="664" width="16" height="12" rx="2" fill="rgba(255,54,33,0.12)" stroke="#FF3621" stroke-width="1"/>
+        <text x="164" y="674" fill="#5A6672" font-size="8" font-family="'Geist', sans-serif">First boot (range midpoint)</text>
+        <rect x="420" y="664" width="16" height="12" rx="2" fill="rgba(90,102,114,0.15)" stroke="#5A6672" stroke-width="1"/>
+        <text x="444" y="674" fill="#5A6672" font-size="8" font-family="'Geist', sans-serif">Later boots, caches warm</text>
+        <text x="1240" y="674" fill="#8A939C" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end">Lab pair · 27 Aug 2026</text>
+      </svg>

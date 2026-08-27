@@ -7,10 +7,14 @@
 # Do not pass --load-format dummy: the n-gram table upcast wedges GB10.
 # Keep chunked-prefill batched tokens at or below 1024 until profiled.
 # Speculation stays off (N_MTP_NUM_TOKENS=0) until specadvisor has a window.
+# qwen4_exp is not in the house DeepSeek image. Use N_VLLM_IMAGE
+# (vllm/vllm-openai:qwen38-flash-next). next-entry.sh applies the ModelOpt
+# hybrid PLE patch (FP8 ngram scale). Do not set VLLM_PLE_CPU_OFFLOAD: that
+# path is single-node only. Eager: default inductor compile can OOM GB10.
 
 x-next-common: &next-common
-  image: ${VLLM_IMAGE}
-  entrypoint: ["/sparkduet-patches/entry.sh"]
+  image: ${N_VLLM_IMAGE}
+  entrypoint: ["/sparkduet-patches/next-entry.sh"]
   network_mode: host
   restart: unless-stopped
   ipc: host
@@ -64,6 +68,7 @@ services:
       --distributed-executor-backend mp
       --nnodes 2 --node-rank 0
       --master-addr ${MASTER_ADDR} --master-port ${MASTER_PORT}
+      --quantization modelopt_fp4
       --kv-cache-dtype ${N_KV_DTYPE}
       --max-model-len ${N_MAX_MODEL_LEN}
       --max-num-seqs ${N_MAX_NUM_SEQS}
@@ -72,9 +77,10 @@ services:
       --enable-chunked-prefill
       --async-scheduling
       --enable-prefix-caching
+      --enforce-eager
       --gpu-memory-utilization ${N_GPU_MEM_UTIL}
       --enable-auto-tool-choice
-      --tool-call-parser hermes
+      --tool-call-parser qwen3_coder
       --reasoning-parser qwen3
       --generation-config vllm
       --host ${N_HOST}
@@ -100,6 +106,7 @@ services:
       --distributed-executor-backend mp
       --nnodes 2 --node-rank 1 --headless
       --master-addr ${MASTER_ADDR} --master-port ${MASTER_PORT}
+      --quantization modelopt_fp4
       --kv-cache-dtype ${N_KV_DTYPE}
       --max-model-len ${N_MAX_MODEL_LEN}
       --max-num-seqs ${N_MAX_NUM_SEQS}
@@ -108,5 +115,6 @@ services:
       --enable-chunked-prefill
       --async-scheduling
       --enable-prefix-caching
+      --enforce-eager
       --gpu-memory-utilization ${N_GPU_MEM_UTIL}
       --generation-config vllm

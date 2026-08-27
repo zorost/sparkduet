@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="field-quad-title field-quad-desc">
+        <title id="field-quad-title">How the field spends a pair</title>
+        <desc id="field-quad-desc">Scenario matrix of Spark ownership: replace versus switch on the same pair or on extra hardware. SparkDuet is the same-pair switch.</desc>
+        <defs>
+          <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
+          <marker id="axis-end" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+            <polygon points="0 0, 9 3.5, 0 7" fill="#11161D"/>
+          </marker>
+          <marker id="axis-start" markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto">
+            <polygon points="9 0, 0 3.5, 9 7" fill="#11161D"/>
+          </marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#EEF1F4"/>
+
+        <!-- Focal tint TR -->
+        <rect x="640" y="80" width="520" height="260" fill="rgba(255,54,33,0.04)"/>
+
+        <!-- TL SAME / REPLACE -->
+        <rect x="160" y="120" width="400" height="180" rx="6" fill="rgba(17,22,29,0.04)" stroke="rgba(90,102,114,0.28)" stroke-width="1"/>
+        <text x="176" y="144" fill="#5A6672" font-size="8" font-weight="500" font-family="'Geist Mono', monospace" letter-spacing="0.18em">01 · SAME / REPLACE</text>
+        <text x="176" y="180" fill="#11161D" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Uninstall tonight</text>
+        <text x="176" y="216" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">Wipe the 150 GiB resident to</text>
+        <text x="176" y="236" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">install the model in the thread.</text>
+        <text x="176" y="256" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">Tomorrow you wipe again.</text>
+
+        <!-- TR SAME / SWITCH (FOCAL) -->
+        <rect x="720" y="120" width="400" height="180" rx="6" fill="rgba(255,54,33,0.08)" stroke="#FF3621" stroke-width="1.2"/>
+        <text x="736" y="144" fill="#FF3621" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" letter-spacing="0.18em">02 · SAME / SWITCH</text>
+        <text x="736" y="180" fill="#11161D" font-size="16" font-weight="600" font-family="'Geist', sans-serif">SparkDuet</text>
+        <text x="736" y="216" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">Four residents on two Sparks.</text>
+        <text x="736" y="236" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">One command. Weights stay.</text>
+        <text x="736" y="256" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">Library still loads on demand.</text>
+
+        <!-- BL MORE / REPLACE -->
+        <rect x="160" y="380" width="400" height="180" rx="6" fill="rgba(17,22,29,0.04)" stroke="rgba(90,102,114,0.28)" stroke-width="1"/>
+        <text x="176" y="404" fill="#5A6672" font-size="8" font-weight="500" font-family="'Geist Mono', monospace" letter-spacing="0.18em">03 · MORE / REPLACE</text>
+        <text x="176" y="440" fill="#11161D" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Buy another pair</text>
+        <text x="176" y="476" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">Two Sparks for DeepSeek, two</text>
+        <text x="176" y="496" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">more for GLM. Capital solves</text>
+        <text x="176" y="516" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">what a switch already covers.</text>
+
+        <!-- BR MORE / SWITCH -->
+        <rect x="720" y="380" width="400" height="180" rx="6" fill="rgba(17,22,29,0.04)" stroke="rgba(90,102,114,0.28)" stroke-width="1"/>
+        <text x="736" y="404" fill="#5A6672" font-size="8" font-weight="500" font-family="'Geist Mono', monospace" letter-spacing="0.18em">04 · MORE / SWITCH</text>
+        <text x="736" y="440" fill="#11161D" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Extra boxes, same layer</text>
+        <text x="736" y="476" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">A second pair is capacity,</text>
+        <text x="736" y="496" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">not a new operating idea.</text>
+        <text x="736" y="516" fill="#5A6672" font-size="12" font-family="'Geist', sans-serif">Run SparkDuet on each pair.</text>
+
+        <!-- Axes -->
+        <line x1="240" y1="340" x2="1040" y2="340" stroke="#11161D" stroke-width="1.2" marker-start="url(#axis-start)" marker-end="url(#axis-end)"/>
+        <line x1="640" y1="80" x2="640" y2="600" stroke="#11161D" stroke-width="1.2" marker-start="url(#axis-start)" marker-end="url(#axis-end)"/>
+
+        <text x="640" y="64" fill="#11161D" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.18em">SAME</text>
+        <text x="640" y="628" fill="#11161D" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.18em">MORE</text>
+        <text x="220" y="344" fill="#11161D" font-size="8" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.18em">REPLACE</text>
+        <text x="1060" y="344" fill="#11161D" font-size="8" font-family="'Geist Mono', monospace" text-anchor="start" letter-spacing="0.18em">SWITCH</text>
+
+        <!-- Legend -->
+        <line x1="40" y1="660" x2="1240" y2="660" stroke="rgba(17,22,29,0.10)" stroke-width="0.8"/>
+        <text x="40" y="684" fill="#5A6672" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="140" y="672" width="16" height="12" rx="2" fill="rgba(255,54,33,0.08)" stroke="#FF3621" stroke-width="1"/>
+        <text x="164" y="682" fill="#5A6672" font-size="8" font-family="'Geist', sans-serif">Headline bet</text>
+        <rect x="360" y="672" width="16" height="12" rx="2" fill="rgba(17,22,29,0.04)" stroke="rgba(90,102,114,0.28)" stroke-width="1"/>
+        <text x="384" y="682" fill="#5A6672" font-size="8" font-family="'Geist', sans-serif">Candidate future</text>
+      </svg>

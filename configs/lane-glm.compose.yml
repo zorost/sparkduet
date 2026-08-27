@@ -10,12 +10,14 @@
 #
 # glm5_next is not in stock vLLM yet. Use the dedicated image in G_VLLM_IMAGE
 # (vllm/vllm-openai:glm53-flash-arm64-cu130). Do not reuse the house DeepSeek
-# image. If native FP4 MoE kernels miss sm_121, add --moe-backend marlin
-# (and only then --enforce-eager) in sparkduet.env notes, not as the default.
+# image. This checkpoint is NoPE: stock SM120 packed MLA dies with
+# pe_dim must be 64. glm-entry.sh installs FlashInfer 0.6.18 then SM90 + FA2.
+# Marlin + eager + fp8_e4m3 KV + block-size 2304 is the GB10-known-good set.
 # Engine init can take an hour: VLLM_ENGINE_READY_TIMEOUT_S=3600.
 
 x-glm-common: &glm-common
   image: ${G_VLLM_IMAGE}
+  entrypoint: ["/sparkduet-patches/glm-entry.sh"]
   network_mode: host
   restart: unless-stopped
   ipc: host
@@ -27,6 +29,7 @@ x-glm-common: &glm-common
   volumes:
     - ${HF_CACHE}:/root/.cache/huggingface
     - ${MODEL_DIR}:${MODEL_DIR}:ro
+    - ../patches:/sparkduet-patches:ro
     - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}:/root/.cache/vllm
   deploy:
     resources:
@@ -42,6 +45,8 @@ x-glm-env: &glm-env
   GLOO_SOCKET_IFNAME: ${GLOO_SOCKET_IFNAME:-${NCCL_SOCKET_IFNAME}}
   NCCL_IB_GID_INDEX: "${NCCL_IB_GID_INDEX}"
   VLLM_ENGINE_READY_TIMEOUT_S: "3600"
+  PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+  FLASHINFER_DISABLE_VERSION_CHECK: "1"
   UCX_MEM_MMAP_HOOK_MODE: none
   UCX_RCACHE_MAX_UNRELEASED: "1024"
   TRITON_CACHE_DIR: /root/.cache/vllm/jit/triton
@@ -70,6 +75,13 @@ services:
       --max-num-seqs ${G_MAX_NUM_SEQS}
       --max-num-batched-tokens ${G_MAX_NUM_BATCHED_TOKENS}
       --long-prefill-token-threshold ${G_LONG_PREFILL_TOKEN_THRESHOLD}
+      --block-size ${G_BLOCK_SIZE}
+      --kv-cache-memory-bytes ${G_KV_CACHE_MEMORY}
+      --moe-backend marlin
+      --enforce-eager
+      --skip-mm-profiling
+      --limit-mm-per-prompt '{"image":4,"video":1}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":${G_MTP_NUM_TOKENS}}'
       --enable-chunked-prefill
       --async-scheduling
       --enable-prefix-caching
@@ -77,6 +89,7 @@ services:
       --enable-auto-tool-choice
       --tool-call-parser glm47
       --reasoning-parser glm45
+      --default-chat-template-kwargs '{"enable_thinking": false}'
       --generation-config vllm
       --host ${G_HOST}
       --port ${G_PORT}
@@ -106,6 +119,13 @@ services:
       --max-num-seqs ${G_MAX_NUM_SEQS}
       --max-num-batched-tokens ${G_MAX_NUM_BATCHED_TOKENS}
       --long-prefill-token-threshold ${G_LONG_PREFILL_TOKEN_THRESHOLD}
+      --block-size ${G_BLOCK_SIZE}
+      --kv-cache-memory-bytes ${G_KV_CACHE_MEMORY}
+      --moe-backend marlin
+      --enforce-eager
+      --skip-mm-profiling
+      --limit-mm-per-prompt '{"image":4,"video":1}'
+      --speculative-config '{"method":"mtp","num_speculative_tokens":${G_MTP_NUM_TOKENS}}'
       --enable-chunked-prefill
       --async-scheduling
       --enable-prefix-caching
