@@ -58,11 +58,14 @@ What that means on the same two boxes, in the same day:
 One resident in unified memory. The other checkpoints sit on NVMe. Confirm is
 `/v1/models` plus a short completion, not the container `Up` line.
 
-![Four residents on two Sparks: clients hit one endpoint, one live lane, on-demand library on disk](docs/diagrams/sparkduet-four-on-two.svg)
+The field still solves this the expensive way: uninstall a 150 GiB checkpoint
+to try the next one, or buy a second pair so two MoEs never share a wall.
+SparkDuet is the switch. Full article:
+[zorost.com/ai-lab/local-ai/sparkduet](https://zorost.com/ai-lab/local-ai/sparkduet).
 
-![One resident at a time: Off, Booting, then Depth, Fleet, Next, or GLM](docs/diagrams/sparkduet-swap-state.svg)
+<img src="docs/diagrams/sparkduet-field.svg" width="680" alt="How the field spends a pair: uninstall, buy another pair, or switch on the same two Sparks">
 
-![How the field spends a pair: uninstall, buy another pair, or switch](docs/diagrams/sparkduet-field.svg)
+<img src="docs/diagrams/sparkduet-four-on-two.svg" width="680" alt="Four residents on two Sparks: clients hit one endpoint, one live lane, on-demand library on disk">
 
 ## Contents
 
@@ -85,7 +88,7 @@ One resident in unified memory. The other checkpoints sit on NVMe. Confirm is
 Everything in this repo follows from one number: a DGX Spark exposes
 **~121 GiB** of GPU-usable unified memory.
 
-![The fit rule: the 156 GiB FP8 flagship does not fit one 121 GiB node; TP=2 splits it 78 GiB per rank; a 29 GiB one-node-fit model runs as a replica per node](docs/diagrams/sparkduet-fit-rule.svg)
+<img src="docs/diagrams/sparkduet-fit-rule.svg" width="680" alt="The fit rule: the 156 GiB FP8 flagship does not fit one 121 GiB node; TP=2 splits it 78 GiB per rank; a 29 GiB one-node-fit model runs as a replica per node">
 
 | Checkpoint | Weights on disk | Fits one node? | Lane |
 |---|---:|:---:|---|
@@ -163,7 +166,7 @@ Measured on the Lab pair on 27 Aug 2026. First-boot column is a cold or
 first-of-session load. Later is caches warm. Do not fire a second switch
 while Booting is still the state.
 
-![Wall clock to first usable token: first boot versus later warm boots](docs/diagrams/sparkduet-boot-times.svg)
+<img src="docs/diagrams/sparkduet-boot-times.svg" width="680" alt="Wall clock to first usable token: first boot versus later warm boots">
 
 | Swap | First boot | Later (caches warm) | What you wait on |
 |---|---|---|---|
@@ -326,7 +329,7 @@ there around the clock.
 
 ## Measured, projected, or hearsay
 
-![The measurement pipeline: warmup, bench suites, tokens counted from usage frames, dated artifacts; the harness refuses short runs and missing counters](docs/diagrams/sparkduet-honesty.svg)
+<img src="docs/diagrams/sparkduet-honesty.svg" width="680" alt="The measurement pipeline: warmup, bench suites, tokens counted from usage frames, dated artifacts">
 
 Every number in this repo carries a label. **[M-here]** was measured on our
 pair by `scripts/bench.py`, with the JSON artifact committed to `results/`.
@@ -377,7 +380,7 @@ on-demand library, the fine-tune lane, reversibility, and per-workload
 measurement. The full praise-forward, regime-by-regime table with both sides'
 boot lines is in `docs/COMPARISON.md`.
 
-![Where each recipe fits: single deep recipes beside SparkDuet's operating model](docs/diagrams/sparkduet-vs-field.svg)
+<img src="docs/diagrams/sparkduet-vs-field.svg" width="680" alt="Where each recipe fits: single deep recipes beside SparkDuet's operating model">
 
 ## Repository map
 
