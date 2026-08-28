@@ -172,15 +172,23 @@ start_depth() { # worker rank first, then head
   compose_head   lane-depth.compose.yml up -d depth-head
 }
 start_next() { # worker rank first, then head. Same fabric as depth.
+  # Both engines serve the same weights on the same :30000 hop under the same
+  # container names. vLLM has no speculation on this checkpoint; SGLang drives
+  # the in-checkpoint MTP layer as a NEXTN drafter. See the two lane files.
   [[ -f "${N_MODEL}/config.json" ]] || die "Flash-Next weights missing at $N_MODEL (prepare-models.sh --model flash-next)"
-  local nh nw
-  nh=$(docker image inspect "${N_VLLM_IMAGE}" --format '{{.Id}}' 2>/dev/null || true)
-  nw=$(ssh_worker "docker image inspect '${N_VLLM_IMAGE}' --format '{{.Id}}'" 2>/dev/null || true)
-  [[ -n "$nh" ]] || die "head missing image $N_VLLM_IMAGE (docker pull it)"
-  [[ -n "$nw" ]] || die "worker missing image $N_VLLM_IMAGE (docker pull it there)"
-  compose_worker lane-next.compose.yml up -d next-worker
+  local nh nw nfile nimg
+  case "${N_ENGINE:-vllm}" in
+    vllm)   nfile=lane-next.compose.yml;        nimg="${N_VLLM_IMAGE}" ;;
+    sglang) nfile=lane-next-sglang.compose.yml; nimg="${N_SGLANG_IMAGE}" ;;
+    *) die "N_ENGINE must be vllm or sglang (got '${N_ENGINE}')" ;;
+  esac
+  nh=$(docker image inspect "$nimg" --format '{{.Id}}' 2>/dev/null || true)
+  nw=$(ssh_worker "docker image inspect '$nimg' --format '{{.Id}}'" 2>/dev/null || true)
+  [[ -n "$nh" ]] || die "head missing image $nimg (docker pull it)"
+  [[ -n "$nw" ]] || die "worker missing image $nimg (docker pull it there)"
+  compose_worker "$nfile" up -d next-worker
   sleep 5
-  compose_head   lane-next.compose.yml up -d next-head
+  compose_head   "$nfile" up -d next-head
 }
 start_glm() { # worker rank first, then head. Same fabric as depth.
   [[ -f "${G_MODEL}/config.json" ]] || die "GLM-5.3-Flash weights missing at $G_MODEL (prepare-models.sh --model glm-flash)"
@@ -252,7 +260,10 @@ wait_ready() { # port [timeout-steps]
 stop_all() {
   pkill -f "scripts/router.py" 2>/dev/null || true
   pkill -f "scripts/specadvisor.py" 2>/dev/null || true
-  for f in lane-depth lane-next lane-glm lane-fleet lane-pd; do
+  # Both lane N engine files are torn down. They share service and container
+  # names, so leaving the inactive one out would risk an orphaned rank holding
+  # :30000 while the other engine boots.
+  for f in lane-depth lane-next lane-next-sglang lane-glm lane-fleet lane-pd; do
     compose_head "$f.compose.yml" down 2>/dev/null || true
     compose_worker "$f.compose.yml" down 2>/dev/null || true
   done

@@ -1,0 +1,178 @@
+# Lane N on SGLang: the SM121 kernel-patched recipe for the same
+# RadixArk/Qwen3.8-Flash-Next-NVFP4 weights lane-next.compose.yml serves on
+# vLLM. Selected by N_ENGINE=sglang; N_ENGINE=vllm keeps the vLLM file. Same
+# :30000 hop, same container names, same --served-model-name, so the guard,
+# Command Center, 9Router, and every picker are unchanged by the swap.
+#
+# Why this exists: vLLM here has no speculation on this checkpoint and decodes
+# at ~23 tok/s. SGLang drives the checkpoint's own MTP layer as a NEXTN drafter,
+# verifying 4 draft tokens per forward pass, and MiaAI-Lab measured 64.4 tok/s
+# single-stream on this exact two-GB10 topology.
+#
+# The image is NOT the stock upstream one. Qwen4Exp routes attention through
+# Qwen Sparse Attention, and on SM121 both stock paths are broken: FlashInfer
+# TRT-LLM sparse decode silently corrupts long-context decode (every token comes
+# back as id 0 while the server still answers HTTP 200), and excluding it falls
+# to packed FA4 CuTe, which does not compile on GB10. N_SGLANG_IMAGE must
+# therefore be the derivative built from MiaAI-Lab's .patch context, which ports
+# sglang#36806 (never TRT-LLM on SM121) and sglang#36845 (Triton packed-varlen
+# fallback) and adds NVFP4 KV for the QSA pools. Do not point this at
+# lmsysorg/sglang:qwen38flashnext directly.
+#
+# Do not pass --load-format dummy: the fp8 n-gram table upcast wedges GB10.
+# Leave PLE placement to SGLang's auto-rule. --no-ple-offload-embedding puts
+# ~26 GiB/rank of pinned host memory on the GPU side and overcommits the box.
+# Keep the chunked-prefill size at or below 1024: the QSA indexer allocates an
+# fp32 [chunk x history] logits buffer per sparse layer per chunk, and chunk
+# 4096 against a long history is enough transient to freeze both machines.
+# Prefill CUDA graphs stay off on GB10; decode graphs are captured and pinned to
+# an explicit batch list because the default list OOMs the graph pool. Keep the
+# top of N_SGLANG_GRAPH_BS at or above N_SGLANG_MAX_REQS or the batches above it
+# decode ungraphed.
+#
+# Context is the native 262144, deliberately: it matches what the vLLM lane
+# serves, so a swap changes the engine and nothing else. For the published 1M
+# recipe, set N_SGLANG_CONTEXT=1048576 and add both --json-model-override-args
+# (YaRN factor 4.0 over original 262144) and --max-prefill-tokens 2048.
+#
+# The two ranks are given byte-identical recipes and differ only in --node-rank
+# and SGLANG_HOST_IP. The flag list is written out per rank rather than shared,
+# the same way lane-next.compose.yml does it: a YAML anchor cannot carry a
+# scalar and then append to it. Any edit below has to be made twice.
+
+x-next-sglang-common: &next-sglang-common
+  image: ${N_SGLANG_IMAGE}
+  entrypoint: ["python3", "-m", "sglang.launch_server"]
+  network_mode: host
+  # A lone rank cannot form the TP=2 group and re-reads ~135 GiB per cycle,
+  # which thrashes the box until sshd stops answering. The lane is started as a
+  # pair by sparkduetctl.sh; zorost-lane-guard restarts the pair, not one rank.
+  restart: "no"
+  ipc: host
+  shm_size: 32gb
+  cpuset: ${N_SGLANG_CPUSET:-5-9,15-19}
+  ulimits:
+    memlock: -1
+    stack: 67108864
+  devices:
+    - /dev/infiniband:/dev/infiniband
+  cap_add:
+    - IPC_LOCK
+  volumes:
+    - ${HF_CACHE}:/root/.cache/huggingface
+    - ${MODEL_DIR}:${MODEL_DIR}:ro
+    - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}/sglang-next/triton:/root/.triton
+    - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}/sglang-next/flashinfer:/root/.cache/flashinfer
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - capabilities: ["gpu"]
+
+x-next-sglang-env: &next-sglang-env
+  HF_HOME: /root/.cache/huggingface
+  HF_HUB_OFFLINE: "${HF_HUB_OFFLINE}"
+  TRANSFORMERS_OFFLINE: "1"
+  TRITON_CACHE_DIR: /root/.triton
+  TORCH_CUDA_ARCH_LIST: 12.1a
+  FLASHINFER_CUDA_ARCH_LIST: 12.1a
+  NCCL_NET: IB
+  NCCL_NET_PLUGIN: none
+  NCCL_IB_DISABLE: "0"
+  NCCL_IB_ROCE_VERSION_NUM: "2"
+  NCCL_IB_HCA: ${NCCL_IB_HCA}
+  NCCL_IB_GID_INDEX: "${NCCL_IB_GID_INDEX}"
+  NCCL_IB_ADDR_FAMILY: AF_INET
+  NCCL_IB_ADDR_RANGE: ${NCCL_IB_ADDR_RANGE:-10.100.0.0/16}
+  NCCL_SOCKET_IFNAME: ${NCCL_SOCKET_IFNAME}
+  GLOO_SOCKET_IFNAME: ${GLOO_SOCKET_IFNAME:-${NCCL_SOCKET_IFNAME}}
+  TP_SOCKET_IFNAME: ${NCCL_SOCKET_IFNAME}
+  NCCL_CROSS_NIC: "0"
+  NCCL_NVLS_ENABLE: "0"
+  NCCL_CUMEM_ENABLE: "0"
+  NCCL_IGNORE_CPU_AFFINITY: "1"
+  NCCL_DEBUG: WARN
+  PYTHONUNBUFFERED: "1"
+
+services:
+  next-head:
+    <<: *next-sglang-common
+    container_name: sparkduet-next-head
+    environment:
+      <<: *next-sglang-env
+      SGLANG_HOST_IP: ${MASTER_ADDR}
+    command: >
+      --model-path ${N_MODEL}
+      --served-model-name ${N_SERVED_NAME}
+      --trust-remote-code
+      --tp-size 2
+      --nnodes 2 --node-rank 0
+      --dist-init-addr ${MASTER_ADDR}:${N_SGLANG_DIST_PORT:-26400}
+      --quantization modelopt_fp4
+      --attention-backend ${N_SGLANG_ATTENTION:-flashinfer}
+      --page-size 64
+      --kv-cache-dtype ${N_SGLANG_KV:-nvfp4}
+      --context-length ${N_SGLANG_CONTEXT:-262144}
+      --mem-fraction-static ${N_SGLANG_MEM_FRACTION:-0.80}
+      --chunked-prefill-size ${N_SGLANG_CHUNK:-1024}
+      --max-running-requests ${N_SGLANG_MAX_REQS:-16}
+      --mamba-ssm-dtype bfloat16
+      --mamba-radix-cache-strategy extra_buffer
+      --mamba-track-interval 64
+      --mamba-full-memory-ratio ${N_SGLANG_MAMBA_RATIO:-0.3}
+      --speculative-algorithm NEXTN
+      --speculative-num-steps ${N_SGLANG_SPEC_STEPS:-3}
+      --speculative-eagle-topk ${N_SGLANG_SPEC_TOPK:-1}
+      --speculative-num-draft-tokens ${N_SGLANG_SPEC_DRAFT:-4}
+      --disable-prefill-cuda-graph
+      --cuda-graph-bs-decode ${N_SGLANG_GRAPH_BS}
+      --reasoning-parser ${N_SGLANG_REASONING_PARSER:-auto}
+      --tool-call-parser ${N_SGLANG_TOOL_PARSER:-auto}
+      --enable-metrics
+      --enable-cache-report
+      --host ${N_HOST}
+      --port ${N_PORT}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${N_PORT}/v1/models || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 1200s
+
+  next-worker:
+    <<: *next-sglang-common
+    container_name: sparkduet-next-worker
+    environment:
+      <<: *next-sglang-env
+      SGLANG_HOST_IP: ${WORKER_FABRIC_IP}
+    command: >
+      --model-path ${N_MODEL}
+      --served-model-name ${N_SERVED_NAME}
+      --trust-remote-code
+      --tp-size 2
+      --nnodes 2 --node-rank 1
+      --dist-init-addr ${MASTER_ADDR}:${N_SGLANG_DIST_PORT:-26400}
+      --quantization modelopt_fp4
+      --attention-backend ${N_SGLANG_ATTENTION:-flashinfer}
+      --page-size 64
+      --kv-cache-dtype ${N_SGLANG_KV:-nvfp4}
+      --context-length ${N_SGLANG_CONTEXT:-262144}
+      --mem-fraction-static ${N_SGLANG_MEM_FRACTION:-0.80}
+      --chunked-prefill-size ${N_SGLANG_CHUNK:-1024}
+      --max-running-requests ${N_SGLANG_MAX_REQS:-16}
+      --mamba-ssm-dtype bfloat16
+      --mamba-radix-cache-strategy extra_buffer
+      --mamba-track-interval 64
+      --mamba-full-memory-ratio ${N_SGLANG_MAMBA_RATIO:-0.3}
+      --speculative-algorithm NEXTN
+      --speculative-num-steps ${N_SGLANG_SPEC_STEPS:-3}
+      --speculative-eagle-topk ${N_SGLANG_SPEC_TOPK:-1}
+      --speculative-num-draft-tokens ${N_SGLANG_SPEC_DRAFT:-4}
+      --disable-prefill-cuda-graph
+      --cuda-graph-bs-decode ${N_SGLANG_GRAPH_BS}
+      --reasoning-parser ${N_SGLANG_REASONING_PARSER:-auto}
+      --tool-call-parser ${N_SGLANG_TOOL_PARSER:-auto}
+      --enable-metrics
+      --enable-cache-report
+      --host ${N_HOST}
+      --port ${N_PORT}

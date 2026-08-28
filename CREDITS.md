@@ -27,7 +27,12 @@ built on a large body of public work. Full source list with links: `docs/RESEARC
   directly shaped our `doctor`, `warmup.sh`, and env validator. The two
   container-start hotfixes in `patches/` (issue #55 truncated tool calls, stops
   dormant inside reasoning, the latter porting tonyd2wild's Stage-C patch 5) are
-  carried verbatim from their MIT-licensed recipe with notices preserved.
+  carried verbatim from their MIT-licensed recipe with notices preserved. Lane N
+  on SGLang is theirs outright: the SM121 QSA kernel work in
+  `patches/next-sglang-sm121/` (sglang#36845's Triton packed-varlen fallback,
+  sglang#36806 keeping TRT-LLM sparse decode off SM121, and NVFP4 KV for the QSA
+  pools) is what makes NEXTN speculative decoding serve this checkpoint on GB10
+  at all, together with the measured recipe our lane file mirrors.
 - **entrpi**, ds4-on-spark: the memory-governor philosophy (typed refusals over
   crashes), demand-mapped context, disk-persisted KV banks, and the 9-workload
   DSpark acceptance suite that proves workload-bound acceptance.
