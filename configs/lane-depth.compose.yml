@@ -14,7 +14,9 @@ x-depth-common: &depth-common
   # default entrypoint differs cannot double or drop the launcher
   entrypoint: ["/sparkduet-patches/entry.sh"]
   network_mode: host
-  restart: unless-stopped
+  # A lone rank cannot form the TP=2 group. Pair restarts only, via
+  # sparkduetctl.sh or zorost-lane-guard.
+  restart: "no"
   ipc: host
   shm_size: 32gb
   # /dev/infiniband is NOT optional for TP=2: without it NCCL cannot open the

@@ -16,7 +16,10 @@ x-next-common: &next-common
   image: ${N_VLLM_IMAGE}
   entrypoint: ["/sparkduet-patches/next-entry.sh"]
   network_mode: host
-  restart: unless-stopped
+  # A lone rank cannot form the TP=2 group and re-reads the whole checkpoint
+  # every cycle until the box stops answering ssh. Pair restarts only, via
+  # sparkduetctl.sh or zorost-lane-guard.
+  restart: "no"
   ipc: host
   shm_size: 32gb
   devices:
