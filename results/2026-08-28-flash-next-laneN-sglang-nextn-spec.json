@@ -1,0 +1,65 @@
+{
+  "lane": "auto",
+  "suite": "spec",
+  "model": "RadixArk/Qwen3.8-Flash-Next-NVFP4",
+  "trials": 2,
+  "elapsed_s": 76.4,
+  "utc": "2026-08-28T21:02:50Z",
+  "environment": {
+    "gpu": "NVIDIA GB10, 2496 MHz, 3003 MHz"
+  },
+  "cells": [
+    {
+      "prompt_tokens_nominal": 0,
+      "prompt_tokens_actual": 88,
+      "concurrency": 1,
+      "thinking": false,
+      "per_stream_tok_s": 38.4,
+      "aggregate_tok_s": 38.4,
+      "ttft_p50_s": 0.204,
+      "ttft_p95_s": 0.247,
+      "acceptance": null,
+      "tokens_per_sse_chunk": 2.49,
+      "class": "code"
+    },
+    {
+      "prompt_tokens_nominal": 0,
+      "prompt_tokens_actual": 89,
+      "concurrency": 1,
+      "thinking": false,
+      "per_stream_tok_s": 49.2,
+      "aggregate_tok_s": 49.2,
+      "ttft_p50_s": 0.213,
+      "ttft_p95_s": 0.264,
+      "acceptance": null,
+      "tokens_per_sse_chunk": 3.23,
+      "class": "math"
+    },
+    {
+      "prompt_tokens_nominal": 0,
+      "prompt_tokens_actual": 86,
+      "concurrency": 1,
+      "thinking": false,
+      "per_stream_tok_s": 34.3,
+      "aggregate_tok_s": 34.3,
+      "ttft_p50_s": 0.267,
+      "ttft_p95_s": 0.269,
+      "acceptance": null,
+      "tokens_per_sse_chunk": 2.21,
+      "class": "prose"
+    },
+    {
+      "prompt_tokens_nominal": 0,
+      "prompt_tokens_actual": 91,
+      "concurrency": 1,
+      "thinking": false,
+      "per_stream_tok_s": 42.1,
+      "aggregate_tok_s": 42.1,
+      "ttft_p50_s": 0.269,
+      "ttft_p95_s": 0.288,
+      "acceptance": null,
+      "tokens_per_sse_chunk": 2.77,
+      "class": "tool"
+    }
+  ]
+}
