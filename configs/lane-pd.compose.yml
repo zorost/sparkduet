@@ -22,7 +22,9 @@ x-pd-common: &pd-common
   image: ${VLLM_IMAGE}
   entrypoint: ["vllm", "serve"]
   network_mode: host
-  restart: unless-stopped
+  # Prefill and decode are one coupled pair across the two boxes. Pair restarts
+  # only, via sparkduetctl.sh or zorost-lane-guard.
+  restart: "no"
   ipc: host
   shm_size: 16gb
   devices:
