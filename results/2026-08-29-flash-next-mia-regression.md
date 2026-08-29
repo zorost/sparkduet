@@ -10,9 +10,9 @@ Triton fallback, chunk 1024, mem-fraction 0.80, native 262k. Kernel patches
 match the upstream `.patch/` files byte-for-byte. Do not run their `start.sh`
 next to SparkDuet.
 
-The 64.4 tok/s headline is `sglang bench_serving` decode. House Rule 1 is
+The 64.4 tok/s headline [M-else] is `sglang bench_serving` decode. House Rule 1 is
 `usage.completion_tokens / wall_time` and includes prefill. Those are different
-numbers. Engine decode during warmup reached 91 to 105 tok/s at four streams.
+numbers. Engine decode during warmup reached 91 to 105 tok/s [M-here] at four streams.
 
 ## What was wrong in the house, and what changed
 
@@ -64,7 +64,7 @@ not change the picker contract. YaRN is not a decode-speed win.
 Acceptance this run: code 0.767, math 0.742, prose 0.225, tool 0.750.
 Tokens per SSE chunk 2.3 to 3.5, so speculation is real.
 
-Short-prompt C1/C2 (256 gen tokens, thinking off): 49.8 tok/s single stream,
+Short-prompt C1/C2 (256 gen tokens, thinking off): 49.8 tok/s [M-here] single stream,
 70.7 aggregate at two streams. After the list prompt, engine
 `spec_accept_length` was 3.825 of 4 (rate 0.94).
 
@@ -90,7 +90,7 @@ ignore_eos:
 ×2 is the honest gap: 88 vs 116.8, about 25 percent, on a longer prefill.
 Engine `last_gen_throughput` after that run was 139.9. Random-ids and
 generated-shared-prefix through their tool both fell to accept length 1.3
-and 11 to 17 tok/s. That is the no-speculation floor, not their table.
+and 11 to 17 tok/s [M-here]. That is the no-speculation floor, not their table.
 
 ## Do not change
 
