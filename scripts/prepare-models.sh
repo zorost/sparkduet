@@ -128,6 +128,37 @@ PY
   fi
 }
 
+stage_glm_exl3() {
+  # EXL3/TR3 4bpw of the same base model, for G_ENGINE=exl3. ~164 GiB, 120
+  # shards. Pulled from brandonmusic rather than a mirror: that account is the
+  # Canonical Repository the ShapleyMcg License names, and the pinned revision
+  # is the snapshot the published KLD panel scored. The download carries the
+  # LICENSE and PROVENANCE files, which that license requires be retained.
+  # A pull this large starves the page cache NVRM needs for a KV slab, so do
+  # not stage it while a lane is booting.
+  local dest="${G_EXL3_MODEL:?set G_EXL3_MODEL in sparkduet.env}"
+  local repo="brandonmusic/GLM-5.3-Flash-tr3-4bpw"
+  local rev="${G_EXL3_REVISION:-5ab363a8dcf6405955fd5f99671e01a1c9fb124b}"
+  [[ "${dest:0:1}" == "/" ]] || die "G_EXL3_MODEL must be an absolute path (got $dest)"
+  echo ">> $repo @ $rev -> $dest (then fabric sync)"
+  if ! hf_download "$repo" "$rev" "$dest"; then
+    HF_HUB_OFFLINE=0 python3 - "$repo" "$rev" "$dest" <<'PY'
+import sys
+from huggingface_hub import snapshot_download
+repo, rev, dest = sys.argv[1], sys.argv[2], sys.argv[3]
+snapshot_download(repo_id=repo, revision=rev, local_dir=dest)
+print("downloaded:", dest)
+PY
+  fi
+  [[ -f "$dest/config.json" ]] || die "EXL3 download incomplete at $dest"
+  local shards
+  shards=$(ls "$dest"/model-*-of-*.safetensors 2>/dev/null | wc -l | tr -d ' ')
+  [[ "$shards" == "120" ]] || die "expected 120 EXL3 shards at $dest, found $shards"
+  [[ -f "$dest/LICENSE" ]] \
+    || echo "WARN: $dest/LICENSE absent; ShapleyMcg requires the license travel with the weights"
+  sync_worker "$(basename "$dest")"
+}
+
 case "${1:-}" in
   --sync-worker) sync_worker "${2:-}";;
   --model)
@@ -137,10 +168,11 @@ case "${1:-}" in
       qwen)        stage_qwen;;
       flash-next|next) stage_flash_next;;
       glm-flash|glm) stage_glm_flash;;
+      glm-exl3|exl3) stage_glm_exl3;;
       both)        stage_deepseek; stage_qwen;;
-      *)           die "unknown --model $MODEL (deepseek|qwen|flash-next|glm-flash|both)";;
+      *)           die "unknown --model $MODEL (deepseek|qwen|flash-next|glm-flash|glm-exl3|both)";;
     esac;;
-  *) die "usage: prepare-models.sh --model deepseek|qwen|flash-next|glm-flash|both | --sync-worker <dir>";;
+  *) die "usage: prepare-models.sh --model deepseek|qwen|flash-next|glm-flash|glm-exl3|both | --sync-worker <dir>";;
 esac
 
 echo "weights staged. Keep HF_HUB_OFFLINE=1 in sparkduet.env from here on."

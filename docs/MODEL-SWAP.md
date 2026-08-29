@@ -46,8 +46,8 @@ git checkout -b model/next-big-thing        # start the next recipe
    ```bash
    ./scripts/sparkduetctl.sh doctor && ./scripts/nccl-check.sh   # TP=2 only
    ./scripts/sparkduetctl.sh switch depth                        # drains, swaps, warms
-   ./scripts/sparkduetctl.sh switch next                         # Flash-Next, lane-n-flash-next
-   ./scripts/sparkduetctl.sh switch glm                          # GLM-5.3-Flash, lane-g-glm-flash
+   ./scripts/sparkduetctl.sh switch next                         # Flash-Next. N_ENGINE=vllm|sglang
+   ./scripts/sparkduetctl.sh switch glm                          # GLM-5.3-Flash. G_ENGINE=vllm|exl3
    ```
 
    `switch` captures the incumbent state first; `revert` restores it if the
