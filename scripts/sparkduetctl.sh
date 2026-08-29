@@ -179,6 +179,29 @@ start_depth() { # worker rank first, then head
   sleep 5
   compose_head   lane-depth.compose.yml up -d depth-head
 }
+resolve_next_nccl() {
+  # MiaAI-Lab start.sh LD_PRELOADs ~/nccl-2.30.7/libnccl.so.2.30.7 for
+  # CUDA-graph + TP on GB10. Image NCCL is older (2.28.x). Only pin when
+  # the same .so exists on both nodes; otherwise mount an empty dir.
+  local so="libnccl.so.2.30.7"
+  local head_dir="${N_SGLANG_NCCL_DIR:-$HOME/nccl-2.30.7}"
+  local worker_home worker_dir
+  worker_home=$(ssh_worker 'printf %s "$HOME"' 2>/dev/null || true)
+  worker_dir="${N_SGLANG_NCCL_DIR:-${worker_home:+$worker_home/nccl-2.30.7}}"
+  mkdir -p /tmp/sparkduet-empty-nccl
+  ssh_worker "mkdir -p /tmp/sparkduet-empty-nccl" 2>/dev/null || true
+  if [[ -f "${head_dir}/${so}" && -n "$worker_dir" ]] \
+     && ssh_worker "test -f '${worker_dir}/${so}'" 2>/dev/null; then
+    export N_SGLANG_NCCL_DIR="$head_dir"
+    export N_SGLANG_NCCL_PRELOAD="/nccl/${so}"
+    echo "host NCCL ${so} pinned on both nodes"
+  else
+    export N_SGLANG_NCCL_DIR=/tmp/sparkduet-empty-nccl
+    export N_SGLANG_NCCL_PRELOAD=
+    echo "host NCCL ${so} not staged; using image NCCL"
+  fi
+}
+
 start_next() { # worker rank first, then head. Same fabric as depth.
   # Both engines serve the same weights on the same :30000 hop under the same
   # container names. vLLM has no speculation on this checkpoint; SGLang drives
@@ -194,6 +217,7 @@ start_next() { # worker rank first, then head. Same fabric as depth.
   nw=$(ssh_worker "docker image inspect '$nimg' --format '{{.Id}}'" 2>/dev/null || true)
   [[ -n "$nh" ]] || die "head missing image $nimg (docker pull it)"
   [[ -n "$nw" ]] || die "worker missing image $nimg (docker pull it there)"
+  [[ "$nfile" == lane-next-sglang.compose.yml ]] && resolve_next_nccl
   compose_worker "$nfile" up -d next-worker
   sleep 5
   compose_head   "$nfile" up -d next-head

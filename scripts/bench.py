@@ -50,8 +50,19 @@ CLASS_PROMPTS = {
 # (a unix-timestamp gauge) and *_per_pos_total (per-position breakdown that
 # sums to the total); matching those doubles the acceptance ratio. Measured
 # that mistake here first: results/2026-08-25 standard artifact, corrected.
-ACCEPT_PAT = re.compile(r'^vllm:(?:spec_decode_)?num_accepted_tokens_total\{[^}]*\}\s+([0-9.e+]+)', re.M)
-DRAFT_PAT  = re.compile(r'^vllm:(?:spec_decode_)?num_draft_tokens_total\{[^}]*\}\s+([0-9.e+]+)', re.M)
+# Totals only. *_created gauges and *_per_pos_total series sit next to these
+# and double the ratio if matched (the 2026-08-25 bug). SGLang NEXTN uses the
+# sglang: prefix; vLLM uses vllm:. Either engine can serve a lane.
+ACCEPT_PAT = re.compile(
+    r'^(?:vllm|sglang):(?:spec_decode_)?num_accepted_tokens_total\{[^}]*\}\s+([0-9.e+]+)',
+    re.M,
+)
+DRAFT_PAT = re.compile(
+    r'^(?:vllm|sglang):(?:spec_decode_)?num_draft_tokens_total\{[^}]*\}\s+([0-9.e+]+)',
+    re.M,
+)
+SGLANG_ACCEPT_LEN = re.compile(r'^sglang:spec_accept_length\{[^}]*\}\s+([0-9.e+]+)', re.M)
+SGLANG_ACCEPT_RATE = re.compile(r'^sglang:spec_accept_rate\{[^}]*\}\s+([0-9.e+]+)', re.M)
 
 
 def synth_prompt(n_tokens: int, salt: str) -> str:
@@ -73,9 +84,15 @@ def scrape_spec_counters(metrics_url: str) -> tuple[float, float] | None:
         return None
     acc = [float(v) for v in ACCEPT_PAT.findall(text)]
     dra = [float(v) for v in DRAFT_PAT.findall(text)]
-    if not acc or not dra:
-        return None
-    return (sum(acc), sum(dra))
+    if acc and dra:
+        return (sum(acc), sum(dra))
+    # SGLang NEXTN often exposes accept rate / length gauges instead of the
+    # vLLM-style running totals. Encode rate as a synthetic (rate, 1.0) pair
+    # so the existing delta math still yields the rate when the gauge moves.
+    rates = [float(v) for v in SGLANG_ACCEPT_RATE.findall(text)]
+    if rates:
+        return (sum(rates) / len(rates), 1.0)
+    return None
 
 
 def capture_environment() -> dict:
@@ -100,7 +117,10 @@ async def one_request(base: str, model: str, prompt: str, gen: int, thinking: bo
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": gen, "min_tokens": gen, "ignore_eos": True,
         "temperature": 0.0,
-        "chat_template_kwargs": {"thinking": thinking},
+        # Flash-Next / Qwen4 reads enable_thinking (thinking on by default).
+        # DeepSeek V4 reads thinking. Send both so a suite that says "off"
+        # actually turns thinking off on whichever lane is resident.
+        "chat_template_kwargs": {"thinking": thinking, "enable_thinking": thinking},
         "stream": True,
         "stream_options": {"include_usage": True},
     }
@@ -180,6 +200,9 @@ async def run_cell(base, metrics_url, model, prompt_maker, n_prompt, conc, gen,
         d_acc, d_dra = spec1[0] - spec0[0], spec1[1] - spec0[1]
         if d_dra > 0:
             acceptance = round(d_acc / d_dra, 3)
+        elif spec1[1] == 1.0 and spec1[0] > 0:
+            # SGLang accept-rate gauge fallback (encoded as (rate, 1.0)).
+            acceptance = round(spec1[0], 3)
 
     # chunk-counting tripwire (protocol sanity check): under speculation, tokens
     # per SSE chunk should be well above 1. Ratio ~1 with speculation active means

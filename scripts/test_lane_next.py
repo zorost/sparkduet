@@ -78,5 +78,18 @@ check("ranks differ only by node-rank", "--node-rank 0" in head and "--node-rank
 check("served id unchanged by engine", "--served-model-name ${N_SERVED_NAME}" in sg_cmd)
 check("house container names", "sparkduet-next-head" in sg and "sparkduet-next-worker" in sg)
 check("no per-rank docker restart", 'restart: "no"' in sg)
+check("ctl resolves host NCCL", "resolve_next_nccl" in ctl)
+check("compose mounts host NCCL dir", "N_SGLANG_NCCL_DIR" in sg)
+check("env example documents NCCL dir", "N_SGLANG_NCCL_DIR=" in env)
+# Mia's agent workaround and the GLM lanes: thinking off unless the client
+# asks. Without this, Cursor Flash-Next thinks until max_tokens.
+check("thinking off by default",
+      "--default-chat-template-kwargs" in sg_cmd
+      and "enable_thinking" in sg_cmd)
+check("native context default", "N_SGLANG_CONTEXT=262144" in env)
+check("Tony mamba pin 97", "N_SGLANG_MAMBA_CACHE=97" in env and "--max-mamba-cache-size" in sg_cmd)
+check("ReplaySSM spec on", "--enable-linear-replayssm-spec" in sg_cmd)
+check("spec attention decode", "--speculative-attention-mode" in sg_cmd)
+check("no cuda-graph padding", "--disable-cuda-graph-padding" in sg_cmd)
 
 raise SystemExit(fails)

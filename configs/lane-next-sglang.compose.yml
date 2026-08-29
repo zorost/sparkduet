@@ -30,10 +30,15 @@
 # top of N_SGLANG_GRAPH_BS at or above N_SGLANG_MAX_REQS or the batches above it
 # decode ungraphed.
 #
-# Context is the native 262144, deliberately: it matches what the vLLM lane
-# serves, so a swap changes the engine and nothing else. For the published 1M
-# recipe, set N_SGLANG_CONTEXT=1048576 and add both --json-model-override-args
-# (YaRN factor 4.0 over original 262144) and --max-prefill-tokens 2048.
+# Context stays native 262144. YaRN 1M plus ReplaySSM at mem 0.80 left a
+# 188k KV pool, so a 1M window is not honest. Chunk stays 1024. Tony's 600k
+# KV pin and --disable-radix-cache are not used. House keeps radix on and
+# pins mamba at 97 so ReplaySSM has headroom.
+#
+# Thinking is off at the server, same as Lane G and Mia's documented agent
+# workaround. Flash-Next thinks on by default; Cursor and other clients that
+# omit chat_template_kwargs then spend the whole max_tokens budget inside
+# <think>. Per-request enable_thinking true still turns it back on.
 #
 # The two ranks are given byte-identical recipes and differ only in --node-rank
 # and SGLANG_HOST_IP. The flag list is written out per rank rather than shared,
@@ -63,6 +68,10 @@ x-next-sglang-common: &next-sglang-common
     - ${MODEL_DIR}:${MODEL_DIR}:ro
     - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}/sglang-next/triton:/root/.triton
     - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}/sglang-next/flashinfer:/root/.cache/flashinfer
+    # MiaAI-Lab start.sh LD_PRELOADs host NCCL 2.30.7 for CUDA-graph + TP on
+    # GB10. Empty dir when the .so is not staged; ctl sets N_SGLANG_NCCL_PRELOAD
+    # only when libnccl.so.2.30.7 is present on both nodes.
+    - ${N_SGLANG_NCCL_DIR:-/tmp/sparkduet-empty-nccl}:/nccl:ro
   deploy:
     resources:
       reservations:
@@ -93,6 +102,7 @@ x-next-sglang-env: &next-sglang-env
   NCCL_IGNORE_CPU_AFFINITY: "1"
   NCCL_DEBUG: WARN
   PYTHONUNBUFFERED: "1"
+  LD_PRELOAD: ${N_SGLANG_NCCL_PRELOAD:-}
 
 services:
   next-head:
@@ -120,14 +130,19 @@ services:
       --mamba-radix-cache-strategy extra_buffer
       --mamba-track-interval 64
       --mamba-full-memory-ratio ${N_SGLANG_MAMBA_RATIO:-0.3}
+      --max-mamba-cache-size ${N_SGLANG_MAMBA_CACHE:-97}
+      --enable-linear-replayssm-spec
       --speculative-algorithm NEXTN
       --speculative-num-steps ${N_SGLANG_SPEC_STEPS:-3}
       --speculative-eagle-topk ${N_SGLANG_SPEC_TOPK:-1}
       --speculative-num-draft-tokens ${N_SGLANG_SPEC_DRAFT:-4}
+      --speculative-attention-mode ${N_SGLANG_SPEC_ATTN:-decode}
       --disable-prefill-cuda-graph
+      --disable-cuda-graph-padding
       --cuda-graph-bs-decode ${N_SGLANG_GRAPH_BS}
       --reasoning-parser ${N_SGLANG_REASONING_PARSER:-auto}
       --tool-call-parser ${N_SGLANG_TOOL_PARSER:-auto}
+      --default-chat-template-kwargs '{"enable_thinking":false}'
       --enable-metrics
       --enable-cache-report
       --host ${N_HOST}
@@ -164,14 +179,19 @@ services:
       --mamba-radix-cache-strategy extra_buffer
       --mamba-track-interval 64
       --mamba-full-memory-ratio ${N_SGLANG_MAMBA_RATIO:-0.3}
+      --max-mamba-cache-size ${N_SGLANG_MAMBA_CACHE:-97}
+      --enable-linear-replayssm-spec
       --speculative-algorithm NEXTN
       --speculative-num-steps ${N_SGLANG_SPEC_STEPS:-3}
       --speculative-eagle-topk ${N_SGLANG_SPEC_TOPK:-1}
       --speculative-num-draft-tokens ${N_SGLANG_SPEC_DRAFT:-4}
+      --speculative-attention-mode ${N_SGLANG_SPEC_ATTN:-decode}
       --disable-prefill-cuda-graph
+      --disable-cuda-graph-padding
       --cuda-graph-bs-decode ${N_SGLANG_GRAPH_BS}
       --reasoning-parser ${N_SGLANG_REASONING_PARSER:-auto}
       --tool-call-parser ${N_SGLANG_TOOL_PARSER:-auto}
+      --default-chat-template-kwargs '{"enable_thinking":false}'
       --enable-metrics
       --enable-cache-report
       --host ${N_HOST}

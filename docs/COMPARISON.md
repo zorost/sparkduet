@@ -60,7 +60,7 @@ everything you claim. One endpoint in front, four lanes behind it.
 | Speculation | static k=5 | measured per-workload acceptance; advisor recommends k from {3,5,7}; applied honestly via restart (k=7 live now) |
 | Benchmarks | prompt x concurrency sweeps | per-workload-class suites (math, code, tool-calling, prose) with acceptance attached, refusal-enforced protocol |
 | Ops | start/stop/status/logs scripts | + doctor gates (fabric, CUDA fallback probe), nccl-check, warmup, JIT-cache persistence, incumbent capture/revert |
-| Context default | 1M ceiling, util 0.835, dedicated boxes | 128K ceiling, util 0.78, head node shares a gateway stack; 1M capable, see below |
+| Context default | 1M ceiling, util 0.835, dedicated boxes | 1M ceiling, util 0.78, 1.01M KV pool on a shared head; pickers 85% of the pool |
 
 ## 3. Numbers, side by side, with configs attached
 
@@ -89,23 +89,23 @@ headline, prose-heavy agents will disappoint you. Artifacts:
 
 ### KV pool and context: read your own boot line
 
-| | MiaAI-Lab boot [M-else] | SparkDuet boot [M-here] |
+| | MiaAI-Lab boot [M-else] | SparkDuet boot 29 Aug 2026 [M-here] |
 |---|---|---|
-| Ceiling | 1,048,576 tokens | 131,072 tokens |
+| Ceiling | 1,048,576 tokens | 1,048,576 tokens |
 | GPU util | 0.835 (dedicated pair) | 0.78 (head node also runs a gateway stack) |
-| KV pool | 18.08 GiB = 2,493,464 tokens | 10.97 GiB = 395,259 tokens |
-| Full-ctx concurrency | 2.38x of 1M | 3.02x of 128K |
+| KV pool | 18.08 GiB = 2,493,464 tokens | 1,014,644 tokens (0.97× of 1M) |
+| Full-ctx concurrency | 2.38x of 1M | 0.97x of 1M |
 
 Two honest caveats. First, the pools are not directly comparable per GiB:
-draft-model and indexer state for the deeper speculation config we run (k=7
-live) eat into the same budget, and per-token KV cost differs with
-configuration. Second, ours is a *choice*, not a limit: we verified 0.82 util
-= 590,567 tokens on the same pair [M-here], and the engine accepts a 1M
-ceiling if you dedicate the boxes the way Mia's default assumes. We keep 0.78
-because 15 GiB of host headroom is what lets one box also run the router,
-Open WebUI, Caddy, and a Telegram bot without earlyoom roulette. That
-three-way trade (KV pool, host headroom, co-resident services) is the real
-tuning story on unified memory, and `docs/MODELS.md` walks it.
+draft-model and indexer state eat into the same budget, and per-token KV
+cost changes with `max_model_len`. The 25 Aug 128k boots reported ~29 KiB
+per token; the 29 Aug 1M-ceiling boot at the same 0.78 util reported
+1,014,644 tokens [M-here, `results/2026-08-29-depth-1m-ceiling.md`].
+Second, Mia still wins raw pool size (2.49M at 0.835 on a dedicated pair).
+We keep 0.78 so one box also runs the router, Open WebUI, Caddy, and a
+Telegram bot. That three-way trade (KV pool, host headroom, what else the
+node runs) is the tuning story on unified memory, and `docs/MODELS.md`
+walks it.
 
 ### What only one of the two repos measures at all
 

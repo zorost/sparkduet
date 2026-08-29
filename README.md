@@ -18,7 +18,7 @@ the Lab runs on its own pair daily. Full write-up:
 [![License: MIT](https://img.shields.io/badge/license-MIT-gold.svg)](LICENSE)
 [![Hardware](https://img.shields.io/badge/hardware-2×%20DGX%20Spark%20(GB10)-76b900.svg)](#quick-start)
 [![Engine](https://img.shields.io/badge/engine-vLLM%20TP%3D2%20·%20DSpark-1a1a2e.svg)](#the-default-flagship-profile)
-[![Context](https://img.shields.io/badge/context-262K%20served-C8A24A.svg)](#the-default-flagship-profile)
+[![Context](https://img.shields.io/badge/context-1M%20door%20·%201014k%20pool-C8A24A.svg)](#the-default-flagship-profile)
 
 [Lab page](https://zorost.com/ai-lab/local-ai/sparkduet) ·
 [Quick start](#quick-start) ·
@@ -269,7 +269,7 @@ the out-of-the-box Lane D recipe. Every knob lives in `sparkduet.env`
 | Engine image | [`ghcr.io/anemll/dspark-vllm-gx10:0.1.1`](https://github.com/Anemll/dspark-vllm-gx10), Anemll's vLLM 0.25 port for GB10/sm_121a |
 | Checkpoint | `deepseek-ai/DeepSeek-V4-Flash-0731`, FP8 weights, ~156 GiB on **each** node |
 | Topology | TP=2 across both Sparks, `mp` backend, worker boots first |
-| Context ceiling | `D_MAX_MODEL_LEN=1048576` (a ceiling, not a reservation; our own pair serves 262K and advertises 85% to clients, alongside a gateway stack) |
+| Context ceiling | `D_MAX_MODEL_LEN=1048576` (a ceiling, not a reservation). This pair at util 0.78 reports a **1,014,644**-token KV pool [M-here, `results/2026-08-29-depth-1m-ceiling.md`]. That is 0.97× a full 1M request, so pickers advertise 862447 (85% of the pool), not 1M. |
 | Concurrency | `D_MAX_NUM_SEQS=6`, batch `8192` tokens, long-prefill chunk cap `1024` |
 | KV cache | `nvfp4_ds_mla`, utilization `0.75` (raise to `0.835` on a dedicated pair) |
 | Speculation | DSpark, `k=5` static default; `specadvisor.py` measured `k=7` optimal on our workload mix [M-here] |
@@ -349,9 +349,11 @@ engine counters over the same window as every cell; short runs are refused.
 
 First-party numbers from this pair, committed under `results/`. Lane D is
 DeepSeek-V4-Flash FP8, TP=2 across both Sparks, DSpark speculation k=5,
-128K max context, `gpu_memory_utilization=0.72` at measurement time (the
-running config has since moved to 0.78 with advisor-recommended k=7; the
-artifacts state their own settings):
+`gpu_memory_utilization=0.72` at the 25 Aug decode suite (the running
+config has since moved to 0.78). The 29 Aug 1M-ceiling boot at 0.78 left
+a 1,014,644-token KV pool [M-here]. Lane N rows below are the 29 Aug
+suite with `enable_thinking` actually off. Artifacts state their own
+settings:
 
 <!-- ladder: M-here -->
 
@@ -363,10 +365,11 @@ artifacts state their own settings):
 | Lane D, 2 nodes | prose, c=1 | 33.6 tok/s (acceptance 0.23) |
 | Lane D, 2 nodes | 218-token synthetic, c=6 | 88.7 tok/s aggregate |
 | Lane D, 2 nodes | 29K-token synthetic, c=1 | 6.2 tok/s, TTFT p50 17.1 s |
-| Lane N SGLang NEXTN, 2 nodes | math, c=1, thinking off | 49.2 tok/s |
-| Lane N SGLang NEXTN, 2 nodes | code, c=1, thinking off | 38.4 tok/s |
-| Lane N SGLang NEXTN, 2 nodes | tool, c=1, thinking off | 42.1 tok/s |
-| Lane N SGLang NEXTN, 2 nodes | prose, c=1, thinking off | 34.3 tok/s |
+| Lane N SGLang NEXTN, 2 nodes | math, c=1, thinking off | 50.5 tok/s |
+| Lane N SGLang NEXTN, 2 nodes | code, c=1, thinking off | 47.8 tok/s |
+| Lane N SGLang NEXTN, 2 nodes | tool, c=1, thinking off | 49.0 tok/s |
+| Lane N SGLang NEXTN, 2 nodes | prose, c=1, thinking off | 36.3 tok/s |
+| Lane D, 2 nodes, util 0.78 | 1M ceiling boot | KV pool 1,014,644 tokens, 0.97× of 1048576 |
 | Qwen3.8-27B NVFP4, vLLM, 1 node | 256 tok, c=1 | 12.8 tok/s (no speculation) |
 | Qwen3.8-27B NVFP4, vLLM, 1 node | 256 tok, c=4 | 46.9 tok/s aggregate |
 | Qwen 27B GGUF Q5 via llama-swap, 1 node | 256 tok, c=1 | 10.1 tok/s |
