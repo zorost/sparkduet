@@ -86,6 +86,15 @@ check("env example documents NCCL dir", "N_SGLANG_NCCL_DIR=" in env)
 check("thinking off by default",
       "--default-chat-template-kwargs" in sg_cmd
       and "enable_thinking" in sg_cmd)
+check("qwen3_coder on sglang", "--tool-call-parser ${N_SGLANG_TOOL_PARSER:-qwen3_coder}" in sg)
+check("sanitize NaN logits", "SGLANG_SANITIZE_NAN_LOGITS" in sg)
+varlen = (root / "patches/next-sglang-sm121/sm121_varlen.py").read_text()
+apply = (root / "patches/next-sglang-sm121/apply_nvfp4_patches.py").read_text()
+check("varlen zeros non-finite QSA",
+      "finite = output == output" in varlen and "kv_end > kv_start" in varlen)
+check("token0 abort in apply", "def patch_token0_guard" in apply and "TOKEN0_RUN = 16" in apply)
+check("token0 skips radix insert", 'getattr(req, "token0_loop", False)' in apply)
+check("token0 resets prefix cache", "self.tree_cache.reset()" in apply)
 check("native context default", "N_SGLANG_CONTEXT=262144" in env)
 check("Tony mamba pin 97", "N_SGLANG_MAMBA_CACHE=97" in env and "--max-mamba-cache-size" in sg_cmd)
 check("ReplaySSM spec on", "--enable-linear-replayssm-spec" in sg_cmd)

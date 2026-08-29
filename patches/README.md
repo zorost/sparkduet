@@ -50,8 +50,9 @@ aggregate is not one-stream speed. First honest GLM boot is the long one
 
 Build context in `next-sglang-sm121/`. Stock `lmsysorg/sglang:qwen38flashnext`
 either fails to compile FA4 CuTe on GB10 or silently decodes token id 0.
-The derivative ports sglang#36845 and #36806 and adds NVFP4 KV for the QSA
-pools. See that directory's README.
+The derivative ports sglang#36845 and #36806, adds NVFP4 KV for the QSA
+pools, and installs the leftover token-id-0 abort from MiaAI-Lab `0f95001`.
+See that directory's README.
 
 ## Lane G on EXL3 (G_ENGINE=exl3)
 

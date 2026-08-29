@@ -363,6 +363,154 @@ GQA_DOT_REPLACEMENT = """        keys = tl.load(
 """
 
 
+TOKEN0_MARKER = "dspark_token0_guard"
+TOKEN0_RUN = 16
+
+
+def patch_token0_guard() -> None:
+    """Abort a leftover token-id-0 (`!`) decode loop and drop poisoned radix.
+
+    sglang#36806/#36845 closed the SM121 TRT-LLM path. A later long thinking
+    decode can still emit token 0, finish HTTP 200, and poison the next
+    request via radix reuse. Port of MiaAI-Lab 0f95001 (MIT). Anchors must
+    match once or the image build fails.
+    """
+    schedule_batch = SRT / "managers" / "schedule_batch.py"
+    processor = (
+        SRT / "managers" / "scheduler_components" / "batch_result_processor.py"
+    )
+    scheduler = SRT / "managers" / "scheduler.py"
+
+    pad_anchor = '''def _compute_pad_value(hash: int) -> int:
+    """Compute pad value from hash."""
+    return MM_PAD_SHIFT_VALUE + (hash % (1 << 30))
+'''
+    pad_repl = pad_anchor + '''
+# dspark_token0_guard: set when a request hits a repeated token-id-0 run.
+DSPARK_TOKEN0_FLUSH_NEEDED = False
+
+
+def dspark_note_token0_loop() -> None:
+    global DSPARK_TOKEN0_FLUSH_NEEDED
+    DSPARK_TOKEN0_FLUSH_NEEDED = True
+
+
+def dspark_consume_token0_flush() -> bool:
+    global DSPARK_TOKEN0_FLUSH_NEEDED
+    needed = DSPARK_TOKEN0_FLUSH_NEEDED
+    DSPARK_TOKEN0_FLUSH_NEEDED = False
+    return needed
+
+'''
+    vocab_anchor = '''    def _check_vocab_boundary_finish(self, new_accepted_tokens: List[int] = None):
+'''
+    vocab_repl = f'''    def _check_token0_loop_finish(self) -> bool:
+        """Stop a decoded token-id-0 (`!`) run before it fills max_tokens."""
+        from http import HTTPStatus
+
+        ids = self.output_ids
+        if len(ids) < {TOKEN0_RUN}:
+            return False
+        if any(token != 0 for token in ids[-{TOKEN0_RUN}:]):
+            return False
+        self.finished_reason = FINISH_ABORT(
+            "token-id-0 loop (decoded '!'); aborting to avoid poisoning later requests",
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            "InternalServerError",
+        )
+        self.finished_len = len(ids) - {TOKEN0_RUN} + 1
+        self.token0_loop = True
+        dspark_note_token0_loop()
+        logger.error(
+            "dspark: token-id-0 loop after %s output tokens rid=%s",
+            len(ids),
+            self.rid,
+        )
+        return True
+
+    def _check_vocab_boundary_finish(self, new_accepted_tokens: List[int] = None):
+'''
+    finish_anchor = '''        new_accepted_tokens = self.output_ids[-new_accepted_len:]
+
+        # Sanitize out-of-range / NaN token ids before any decode.
+        if self._check_vocab_boundary_finish(new_accepted_tokens):
+            self._cap_finished_len_at_max_new_tokens()
+            return
+'''
+    finish_repl = '''        new_accepted_tokens = self.output_ids[-new_accepted_len:]
+
+        # Sanitize out-of-range / NaN token ids before any decode.
+        if self._check_vocab_boundary_finish(new_accepted_tokens):
+            self._cap_finished_len_at_max_new_tokens()
+            return
+
+        # dspark_token0_guard: abort a repeated token-id-0 (`!`) run.
+        if self._check_token0_loop_finish():
+            return
+'''
+    insert_anchor = '''                is_insert = (
+                    req.mamba_lazy_is_insert
+                    if mamba_extra_buffer_lazy_enabled()
+                    else True
+                )
+                release_kv_cache(req, self.tree_cache, is_insert=is_insert)
+'''
+    insert_repl = '''                is_insert = (
+                    req.mamba_lazy_is_insert
+                    if mamba_extra_buffer_lazy_enabled()
+                    else True
+                )
+                if getattr(req, "token0_loop", False):  # dspark_token0_guard
+                    is_insert = False
+                release_kv_cache(req, self.tree_cache, is_insert=is_insert)
+'''
+    next_anchor = '''    def get_next_batch_to_run(
+        self, running_batch: ScheduleBatch, last_batch: Optional[ScheduleBatch]
+    ) -> NextBatchPlan:
+        self.process_pending_chunked_abort()
+'''
+    next_repl = '''    def get_next_batch_to_run(
+        self, running_batch: ScheduleBatch, last_batch: Optional[ScheduleBatch]
+    ) -> NextBatchPlan:
+        self.process_pending_chunked_abort()
+        # dspark_token0_guard: drop the radix tree before the next prefill so
+        # a later request cannot reuse prefix KV corrupted by a token-id-0 run.
+        if running_batch.is_empty():
+            from sglang.srt.managers.schedule_batch import dspark_consume_token0_flush
+
+            if dspark_consume_token0_flush():
+                logger.warning(
+                    "dspark: token-id-0 loop; resetting prefix cache before the next prefill"
+                )
+                self.tree_cache.reset()
+'''
+
+    def _one(path, replacements):
+        s = path.read_text()
+        if TOKEN0_MARKER in s:
+            print(f"{path.name}: token0 guard already patched")
+            return
+        for anchor, replacement in replacements:
+            count = s.count(anchor)
+            assert count == 1, (
+                f"{path.name}: token0 anchor matched {count} times (want 1):\n{anchor}"
+            )
+            s = s.replace(anchor, replacement, 1)
+        path.write_text(s)
+        print(f"{path.name}: token0 guard patched")
+
+    _one(
+        schedule_batch,
+        [
+            (pad_anchor, pad_repl),
+            (vocab_anchor, vocab_repl),
+            (finish_anchor, finish_repl),
+        ],
+    )
+    _one(processor, [(insert_anchor, insert_repl)])
+    _one(scheduler, [(next_anchor, next_repl)])
+
+
 def patch_count(path, anchor, replacement, expected, marker):
     s = path.read_text()
     if marker in s:
@@ -398,6 +546,7 @@ def main() -> None:
         expected=2,
         marker=FP8_DOT_MARKER,
     )
+    patch_token0_guard()
     print("NVFP4 KV patches applied")
 
 

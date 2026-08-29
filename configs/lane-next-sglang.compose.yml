@@ -35,10 +35,14 @@
 # KV pin and --disable-radix-cache are not used. House keeps radix on and
 # pins mamba at 97 so ReplaySSM has headroom.
 #
-# Thinking is off at the server, same as Lane G and Mia's documented agent
-# workaround. Flash-Next thinks on by default; Cursor and other clients that
-# omit chat_template_kwargs then spend the whole max_tokens budget inside
-# <think>. Per-request enable_thinking true still turns it back on.
+# Thinking is off at the server, same as Lane G. Flash-Next thinks on by
+# default; Cursor and other clients that omit chat_template_kwargs then
+# spend the whole max_tokens budget inside <think>. Per-request
+# enable_thinking true still turns it back on. The leftover token-id-0
+# `!` loop after sglang#36845 (MiaAI-Lab 0f95001) is aborted in the image:
+# NaN QSA output is zeroed, 16 consecutive token-0 samples abort the
+# request, that completion is not inserted into radix, and the prefix
+# cache is reset before the next prefill.
 #
 # The two ranks are given byte-identical recipes and differ only in --node-rank
 # and SGLANG_HOST_IP. The flag list is written out per rank rather than shared,
@@ -102,6 +106,7 @@ x-next-sglang-env: &next-sglang-env
   NCCL_IGNORE_CPU_AFFINITY: "1"
   NCCL_DEBUG: WARN
   PYTHONUNBUFFERED: "1"
+  SGLANG_SANITIZE_NAN_LOGITS: "1"
   LD_PRELOAD: ${N_SGLANG_NCCL_PRELOAD:-}
 
 services:
@@ -140,8 +145,8 @@ services:
       --disable-prefill-cuda-graph
       --disable-cuda-graph-padding
       --cuda-graph-bs-decode ${N_SGLANG_GRAPH_BS}
-      --reasoning-parser ${N_SGLANG_REASONING_PARSER:-auto}
-      --tool-call-parser ${N_SGLANG_TOOL_PARSER:-auto}
+      --reasoning-parser ${N_SGLANG_REASONING_PARSER:-qwen3}
+      --tool-call-parser ${N_SGLANG_TOOL_PARSER:-qwen3_coder}
       --default-chat-template-kwargs '{"enable_thinking":false}'
       --enable-metrics
       --enable-cache-report
@@ -189,8 +194,8 @@ services:
       --disable-prefill-cuda-graph
       --disable-cuda-graph-padding
       --cuda-graph-bs-decode ${N_SGLANG_GRAPH_BS}
-      --reasoning-parser ${N_SGLANG_REASONING_PARSER:-auto}
-      --tool-call-parser ${N_SGLANG_TOOL_PARSER:-auto}
+      --reasoning-parser ${N_SGLANG_REASONING_PARSER:-qwen3}
+      --tool-call-parser ${N_SGLANG_TOOL_PARSER:-qwen3_coder}
       --default-chat-template-kwargs '{"enable_thinking":false}'
       --enable-metrics
       --enable-cache-report

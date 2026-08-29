@@ -74,6 +74,11 @@ def is_token_zero(text: str) -> bool:
     return len(s) >= 8 and set(s) == {"!"}
 
 
+def is_token0_id_run(ids, run: int = 16) -> bool:
+    """Server-side abort rule from MiaAI-Lab 0f95001."""
+    return len(ids) >= run and all(token == 0 for token in ids[-run:])
+
+
 def trial(url: str, model: str, needle: str, prompt: str, partner: str,
           timeout: float) -> dict:
     long_req = {
@@ -148,6 +153,9 @@ def _self_check() -> None:
     assert not is_token_zero("!!!")                     # too short to be the loop
     assert not is_token_zero("Wow!!!!!!!!! great")      # real text with bangs
     assert not is_token_zero("")
+    assert not is_token0_id_run([0] * 15)
+    assert is_token0_id_run([7, 3] + [0] * 16)
+    assert not is_token0_id_run([0] * 15 + [1])
     h = haystack(10, seed=1)
     assert len(h.splitlines()) == 10
     assert haystack(10, seed=1) == h, "same seed must give the same haystack"

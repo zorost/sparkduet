@@ -126,7 +126,9 @@ The Lab pair runs `N_ENGINE=sglang`. vLLM uses
 `vllm/vllm-openai:qwen38-flash-next` plus `next-ple-fp8.py` so the ModelOpt
 hybrid PLE loads. SGLang uses the SM121-patched image from
 `patches/next-sglang-sm121/`; stock `lmsysorg/sglang:qwen38flashnext`
-either fails to compile or silently decodes token id 0. `switch next`
+either fails to compile or silently decodes token id 0. The image also
+aborts leftover `!` loops after that kernel (MiaAI-Lab `0f95001`) so a
+long thinking decode cannot poison later radix hits. `switch next`
 drains the incumbent; `switch depth` puts the flagship back. Weights:
 `prepare-models.sh --model flash-next`.
 

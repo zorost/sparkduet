@@ -32,7 +32,10 @@ built on a large body of public work. Full source list with links: `docs/RESEARC
   `patches/next-sglang-sm121/` (sglang#36845's Triton packed-varlen fallback,
   sglang#36806 keeping TRT-LLM sparse decode off SM121, and NVFP4 KV for the QSA
   pools) is what makes NEXTN speculative decoding serve this checkpoint on GB10
-  at all, together with the measured recipe our lane file mirrors. Lane G on
+  at all, together with the measured recipe our lane file mirrors. Commit
+  `0f95001` (29 Aug 2026) is the leftover long-thinking token-id-0 abort after
+  those kernels: zero non-finite QSA output, stop after 16 token-0 samples,
+  skip radix insert, reset the prefix cache. Lane G on
   EXL3 uses their overlay image and the later SM121 patches in
   `patches/glm-exl3-sm121/` (prefix-cache hit, decode-floor, stops inside
   reasoning), MIT, notices preserved.

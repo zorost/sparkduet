@@ -90,7 +90,14 @@ def _qsa_one_query_varlen_kernel(
         accumulator += tl.sum(probabilities[:, None] * values, axis=0)
         running_max = new_max
 
-    output = accumulator / tl.where(running_sum > 0.0, running_sum, 1.0)
+    # Empty selected-KV (or a 0 running_sum) must not divide through -inf
+    # softmax state: that yields NaN attention, NaN logits, then token id 0
+    # (`!`) until max_tokens and can poison later radix hits.
+    # MiaAI-Lab 0f95001, MIT, after sglang#36845.
+    valid = (kv_end > kv_start) & (running_sum > 0.0)
+    output = accumulator / tl.where(valid, running_sum, 1.0)
+    finite = output == output
+    output = tl.where(finite & valid, output, 0.0)
     tl.store(
         out_ptr
         + query_idx * out_stride_t

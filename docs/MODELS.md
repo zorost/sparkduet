@@ -125,7 +125,8 @@ Not the default flagship until a measured A/B on this pair says otherwise.
   34.3 tok/s at c=1, thinking off
   (`results/2026-08-28-flash-next-laneN-sglang-nextn-spec.*`).
 - Safety: no `--load-format dummy`, chunked prefill ≤1024, memory fraction
-  ≤0.82, n-gram table left on auto offload. Same gateway.
+  ≤0.82, n-gram table left on auto offload. Image aborts leftover token-id-0
+  `!` loops after sglang#36845 (MiaAI-Lab `0f95001`). Same gateway.
 - Stage: `./scripts/prepare-models.sh --model flash-next`
 - Serve: `./scripts/sparkduetctl.sh switch next`
 - Back: `./scripts/sparkduetctl.sh switch depth`

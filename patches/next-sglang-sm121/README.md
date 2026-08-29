@@ -24,8 +24,8 @@ not start.
 
 | File | Origin | Effect |
 |---|---|---|
-| `sm121_varlen.py` | sglang#36845 | Triton packed one-query varlen kernel matching the QSA call contract. Reads `cu_seqlens` on-device so CUDA-graph replay stays valid when the backend rewrites the sequence table. |
-| `apply_nvfp4_patches.py` | MiaAI-Lab | Applied at image build. Forces `_resolve_trtllm_sparse_decode` to `None` on SM121 (sglang#36806) even if a newer base re-enables it, returns the Triton fallback from `_resolve_flash_attn_varlen_func` on SM121, and wires NVFP4 KV for the QSA pools. SM100/SM120 keep their native paths. |
+| `sm121_varlen.py` | sglang#36845, then MiaAI-Lab 0f95001 | Triton packed one-query varlen kernel matching the QSA call contract. Reads `cu_seqlens` on-device so CUDA-graph replay stays valid. Zeros non-finite attention so an empty selected-KV does not become token id 0. |
+| `apply_nvfp4_patches.py` | MiaAI-Lab | Applied at image build. Forces `_resolve_trtllm_sparse_decode` to `None` on SM121 (sglang#36806) even if a newer base re-enables it, returns the Triton fallback from `_resolve_flash_attn_varlen_func` on SM121, wires NVFP4 KV for the QSA pools, and installs the leftover token-id-0 abort (16 consecutive zeros, no radix insert, prefix-cache reset). SM100/SM120 keep their native paths. |
 | `qsa_nvfp4_kv.py` | MiaAI-Lab | NVFP4 KV cache method declaring plain BF16 dequant reads for every backend and phase, so the pool allocates packed FP4 plus per-block FP8 scales with no FP8 dequant workspace. |
 
 Every patch asserts on its anchor. A base-image layout change fails the build
@@ -34,8 +34,10 @@ loudly instead of producing an image that quietly serves the broken path.
 ## Provenance
 
 Vendored from [MiaAI-Lab/Qwen3.8-Flash-Next-Dual-DGX-Sparks](https://github.com/MiaAI-Lab/Qwen3.8-Flash-Next-Dual-DGX-Sparks)
-at commit `344f9d0d5e9523d8398fa2804d5a3e123fd3d21a`, MIT, copied verbatim from
-the `.patch/` context that `start.sh` generates. See `LICENSE.MiaAI-Lab`.
+at commit `0f950012c8d8323acac9a08846a32ef7953f5f62` (29 Aug 2026 leftover
+token-id-0 abort on top of `344f9d0`), MIT. Kernel and apply scripts are
+ported from the `.patch/` context that `start.sh` generates. The house
+does not run `start.sh`. See `LICENSE.MiaAI-Lab`.
 
 The upstream repo is a self-contained launcher that manages its own containers.
 The house does not run it: lane N is started as a pair by `sparkduetctl.sh` and

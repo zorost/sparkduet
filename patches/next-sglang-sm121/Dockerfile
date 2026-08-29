@@ -1,6 +1,7 @@
 # DSpark kernel-work image for Qwen3.8-Flash-Next-NVFP4 on DGX Spark (SM121/GB10).
 # sglang#36806 (exclude SM121 from TRT-LLM sparse decode) + #36845 (Triton
-# packed-varlen fallback) + NVFP4 KV for the QSA path. See start.sh header.
+# packed-varlen fallback) + NVFP4 KV for the QSA path + token-id-0 abort
+# guard (MiaAI-Lab 0f95001). See patches/next-sglang-sm121/README.md.
 FROM lmsysorg/sglang:qwen38flashnext
 
 COPY sm121_varlen.py /sgl-workspace/sglang/python/sglang/srt/layers/attention/qsa/sm121_varlen.py
