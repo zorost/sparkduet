@@ -43,6 +43,19 @@ acc = [float(v) for v in bench.ACCEPT_PAT.findall(sample)]
 dra = [float(v) for v in bench.DRAFT_PAT.findall(sample)]
 check("acceptance totals only, traps excluded", acc == [900.0] and dra == [1500.0])
 
+sglang_sample = (
+    'sglang:num_accepted_tokens_total{e="0"} 775\n'
+    'sglang:num_accepted_tokens_created{e="0"} 1.7876e+09\n'
+    'sglang:num_draft_tokens_total{e="0"} 1000\n'
+    'sglang:spec_accept_rate{e="0"} 0.775\n'
+)
+s_acc = [float(v) for v in bench.ACCEPT_PAT.findall(sglang_sample)]
+s_dra = [float(v) for v in bench.DRAFT_PAT.findall(sglang_sample)]
+check("sglang totals match, created excluded", s_acc == [775.0] and s_dra == [1000.0])
+src = open(os.path.join(os.path.dirname(__file__), "bench.py")).read()
+check("enable_thinking sent with thinking",
+      '"enable_thinking": thinking' in src and '"thinking": thinking' in src)
+
 # suites are structurally sound
 for name, s in bench.SUITES.items():
     ok = ("conc" in s and "gen" in s and ("prompts" in s or s.get("classes")))

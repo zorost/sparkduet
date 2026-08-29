@@ -42,6 +42,8 @@ The house does not run it: lane N is started as a pair by `sparkduetctl.sh` and
 recovered by `zorost-lane-guard`, and a second orchestrator competing for
 :30000 is the exact failure that took the lane down on 2026-08-28. Only the
 build context is vendored; the launch contract lives in the lane file.
+`sparkduetctl.sh` will LD_PRELOAD host `libnccl.so.2.30.7` when that file
+exists on both nodes (`~/nccl-2.30.7/`). The image ships NCCL 2.29.7.
 
 ## Rebuild
 
