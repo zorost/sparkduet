@@ -45,3 +45,26 @@ Applied by `glm-entry.sh` before `vllm serve`.
 `G_KV_DTYPE=fp8_e4m3` and `G_MAX_NUM_SEQS=8` live in `sparkduet.env`. Eight-way
 aggregate is not one-stream speed. First honest GLM boot is the long one
 (20–60 min); later boots 12–20 min.
+
+## Lane N on SGLang (N_ENGINE=sglang)
+
+Build context in `next-sglang-sm121/`. Stock `lmsysorg/sglang:qwen38flashnext`
+either fails to compile FA4 CuTe on GB10 or silently decodes token id 0.
+The derivative ports sglang#36845 and #36806 and adds NVFP4 KV for the QSA
+pools. See that directory's README.
+
+## Lane G on EXL3 (G_ENGINE=exl3)
+
+Applied by `glm-exl3-entry.sh` before `vllm serve`. The published overlay
+predates these files, so they are mounted over `/opt/glm53/`. A missing
+file is a hard failure.
+
+| File | What it fixes | Origin |
+|---|---|---|
+| `glm-exl3-sm121/patch_hybrid_prefix_hit.py` | Prefix-cache block accounting on the hybrid mamba path | MiaAI-Lab, MIT |
+| `glm-exl3-sm121/patch_scheduler_decode_floor.py` | Mixed prefill stealing a running decode step | MiaAI-Lab, MIT |
+| `glm-exl3-sm121/patch_suppress_stops_in_reasoning.py` | Client stop strings firing inside `<think>` | MiaAI-Lab, MIT |
+| `glm-exl3-sm121/patch_clamp_max_tokens.py` | OpenCode `max_tokens=9999999` 400s against `max_model_len` | House |
+
+Weights are ShapleyMcg License v1.0. Attribution is required; the notice
+is in `glm-exl3-sm121/README.md`.

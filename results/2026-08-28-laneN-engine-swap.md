@@ -13,6 +13,8 @@ same day.
 
 ## Decode, same harness, same protocol
 
+<!-- ladder: M-here -->
+
 `scripts/bench.py --suite spec --trials 2`, concurrency 1, thinking off. Rule 1
 throughput: `usage.completion_tokens / wall_time`, so prefill and TTFT are inside
 the number.

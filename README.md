@@ -95,7 +95,8 @@ Everything in this repo follows from one number: a DGX Spark exposes
 | DeepSeek-V4-Flash-0731 FP8 (official) | ~156 GiB | **No** | **D only** (TP=2, both nodes) |
 | DeepSeek-V4-Flash-0731 GGUF Q2/Q3 | ~108 GiB | Yes, barely | F or on-demand swapper |
 | Qwen3.8-Flash-Next NVFP4 (RadixArk) | ~135 GiB | **No** | **N only** (TP=2, both nodes) |
-| GLM-5.3-Flash NVFP4 (LibertAIDAI) | ~181 GiB | **No** | **G only** (TP=2, both nodes) |
+| GLM-5.3-Flash NVFP4 (LibertAIDAI) | ~181 GiB | **No** | **G only** (TP=2, `G_ENGINE=vllm`) |
+| GLM-5.3-Flash EXL3/TR3 4bpw (brandonmusic) | ~164 GiB | **No** | **G only** (TP=2, `G_ENGINE=exl3`) |
 | Qwen3.8-27B (NVFP4 / FP8) | ~29 GiB | Yes, easily | F (a replica per node), P |
 | Anything ≤ ~90 GiB | varies | Yes | F, P, or single-node |
 
@@ -118,22 +119,28 @@ container-start hotfixes from the community recipe lineage (truncated tool
 calls, stops inside reasoning; see `patches/README.md`).
 
 **Lane N, Next (TP=2).** The same two-box split as Lane D, pointed at
-Qwen3.8-Flash-Next NVFP4. Lives on
-[`lane-n-flash-next`](https://github.com/zorost/sparkduet/tree/lane-n-flash-next).
-Image `vllm/vllm-openai:qwen38-flash-next`. `next-ple-fp8.py` registers the
-FP8 PLE `weight_scale` as a buffer so ModelOpt hybrid checkpoints load.
-`switch next` drains the incumbent, then boots Flash-Next on the same fabric
-port; `switch depth` puts the flagship back. The two never share RAM.
-Weights: `prepare-models.sh --model flash-next`.
+Qwen3.8-Flash-Next NVFP4. `N_ENGINE` picks the file: `vllm` (no speculation
+on this checkpoint) or `sglang` (NEXTN drafts from the in-checkpoint MTP
+layer). Both keep the same `:30000` hop, container names, and served id.
+The Lab pair runs `N_ENGINE=sglang`. vLLM uses
+`vllm/vllm-openai:qwen38-flash-next` plus `next-ple-fp8.py` so the ModelOpt
+hybrid PLE loads. SGLang uses the SM121-patched image from
+`patches/next-sglang-sm121/`; stock `lmsysorg/sglang:qwen38flashnext`
+either fails to compile or silently decodes token id 0. `switch next`
+drains the incumbent; `switch depth` puts the flagship back. Weights:
+`prepare-models.sh --model flash-next`.
 
-**Lane G, GLM (TP=2).** Same split, pointed at LibertAIDAI's NVFP4 of
-Z.ai GLM-5.3-Flash (320B / 18B-active, vision, MIT). Lives on
-[`lane-g-glm-flash`](https://github.com/zorost/sparkduet/tree/lane-g-glm-flash).
-~181 GiB, so TP=2 only. Dedicated image `vllm/vllm-openai:glm53-flash-arm64-cu130`.
-`glm-entry.sh` installs FlashInfer 0.6.18 and selects the SM90 NoPE MLA path.
-Stock 0.6.17 has no prefill backend for this checkpoint and completions
-collapse. `G_MAX_NUM_SEQS=8` is the scheduler cap (aggregate, not one stream).
-`switch glm` / `switch depth`. Weights: `prepare-models.sh --model glm-flash`.
+**Lane G, GLM (TP=2).** Same split, same hop, two quantizations of Z.ai
+GLM-5.3-Flash (320B / 18B-active, vision, MIT). `G_ENGINE=vllm` is
+LibertAIDAI NVFP4 (~181 GiB) on `vllm/vllm-openai:glm53-flash-arm64-cu130`.
+`glm-entry.sh` installs FlashInfer 0.6.18 and selects the SM90 NoPE MLA
+path; stock 0.6.17 collapses completions to token 1023. `G_ENGINE=exl3`
+is brandonmusic EXL3/TR3 4bpw (~164 GiB, ShapleyMcg License v1.0) on the
+MiaAI-Lab overlay. The Lab pair runs `G_ENGINE=exl3` for quality per byte
+(teacher-logit KLD 0.024555 nats vs NVFP4 0.060535). DFlash2 stays out:
+those weights are CC BY-NC-ND. Both engines speculate with MTP.
+`switch glm` / `switch depth`. Weights: `prepare-models.sh --model glm-flash`
+or `--model glm-exl3`.
 
 **Lane F, Fleet (DP=2).** Two independent replicas of a model that fits one
 node, one per Spark, load-balanced by the router. No cross-node collective on
@@ -356,6 +363,10 @@ artifacts state their own settings):
 | Lane D, 2 nodes | prose, c=1 | 33.6 tok/s (acceptance 0.23) |
 | Lane D, 2 nodes | 218-token synthetic, c=6 | 88.7 tok/s aggregate |
 | Lane D, 2 nodes | 29K-token synthetic, c=1 | 6.2 tok/s, TTFT p50 17.1 s |
+| Lane N SGLang NEXTN, 2 nodes | math, c=1, thinking off | 49.2 tok/s |
+| Lane N SGLang NEXTN, 2 nodes | code, c=1, thinking off | 38.4 tok/s |
+| Lane N SGLang NEXTN, 2 nodes | tool, c=1, thinking off | 42.1 tok/s |
+| Lane N SGLang NEXTN, 2 nodes | prose, c=1, thinking off | 34.3 tok/s |
 | Qwen3.8-27B NVFP4, vLLM, 1 node | 256 tok, c=1 | 12.8 tok/s (no speculation) |
 | Qwen3.8-27B NVFP4, vLLM, 1 node | 256 tok, c=4 | 46.9 tok/s aggregate |
 | Qwen 27B GGUF Q5 via llama-swap, 1 node | 256 tok, c=1 | 10.1 tok/s |
@@ -391,8 +402,10 @@ sparkduet/
 ├── configs/
 │   ├── sparkduet.env.example  # every knob, one file, validated at start
 │   ├── lane-depth.compose.yml # TP=2 head+worker (the flagship lane)
-│   ├── lane-next.compose.yml  # TP=2 Flash-Next (lane-n-flash-next)
-│   ├── lane-glm.compose.yml   # TP=2 GLM-5.3-Flash (lane-g-glm-flash)
+│   ├── lane-next.compose.yml  # TP=2 Flash-Next vLLM (N_ENGINE=vllm)
+│   ├── lane-next-sglang.compose.yml  # same hop, NEXTN (N_ENGINE=sglang)
+│   ├── lane-glm.compose.yml   # TP=2 GLM NVFP4 (G_ENGINE=vllm)
+│   ├── lane-glm-exl3.compose.yml     # same hop, EXL3 (G_ENGINE=exl3)
 │   ├── lane-fleet.compose.yml # DP=2 replicas (one-node-fit models)
 │   └── lane-pd.compose.yml    # prefill/decode split (experimental)
 ├── scripts/
@@ -419,7 +432,7 @@ sparkduet/
 │   ├── FIELD-NOTES.md         # deployment lessons from live clusters
 │   ├── RESEARCH.md            # the sourced evidence base
 │   └── diagrams/              # four-on-two, swap state, field, boot times, fit, honesty
-├── patches/                   # DeepSeek hotfixes, Flash-Next PLE, GLM FlashInfer/SM90
+├── patches/                   # DeepSeek hotfixes, Flash-Next PLE/SGLang SM121, GLM FlashInfer + EXL3
 └── results/                   # dated benchmark artifacts (JSON + markdown)
 ```
 

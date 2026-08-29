@@ -1,0 +1,147 @@
+# Lane G, GLM on EXL3: vLLM TP=2 for GLM-5.3-Flash EXL3/TR3 4bpw.
+# Selected by G_ENGINE=exl3; G_ENGINE=vllm keeps lane-glm.compose.yml (NVFP4).
+# Same two-box topology, same :30000, same container names as the NVFP4 lane, so
+# sparkduetctl.sh, zorost-lane-guard and 9Router need no special case.
+#
+# Checkpoint: brandonmusic/GLM-5.3-Flash-tr3-4bpw pinned at 5ab363a8 (~164 GiB,
+# 120 shards), ShapleyMcg License v1.0. Attribution is a condition of that
+# license: see patches/glm-exl3-sm121/README.md, which carries the required
+# notice. Base is zai-org/GLM-5.3-Flash (MIT).
+#
+# Why this lane exists: quality per byte. An independent teacher-logit KLD panel
+# puts EXL3/TR3 4bpw at 0.024555 nats against NVFP4's 0.060535 at the same
+# ~180 GB footprint, level with official FP8 at 54% of the bytes. Speed is not
+# the claim. MiaAI-Lab's headline 62.9 tok/s needs DFlash2 k=7, whose weights are
+# CC BY-NC-ND 4.0 and unusable here. This lane runs the license-clean MTP
+# rollback MiaAI-Lab documents, which is the same speculator family the NVFP4
+# lane already used.
+#
+# Deliberate departures from MiaAI-Lab's published recipe, so the A/B against
+# the NVFP4 lane isolates the quantization and nothing else:
+#   * max-model-len 262144, not her 1000000, matching G_MAX_MODEL_LEN
+#   * gpu-memory-utilization 0.80, not her 0.87. 0.82 misses by ~0.7 GiB on
+#     Spark 2 after reboot with ComfyUI, the desktop session, llamaswap,
+#     Caddy and a dashboard.
+# Her values are the ceiling to revisit once the comparison is settled.
+#
+# Do not add --moe-backend marlin. MiaAI-Lab is explicit: EXL3 weights use the
+# fused exllamav3_ext.exl3_moe path and marlin is wrong for this checkpoint.
+# Graphs stay on (no --enforce-eager); MTP capture sizes must include 3.
+
+x-glm-exl3-common: &glm-exl3-common
+  image: ${G_EXL3_IMAGE}
+  entrypoint: ["/sparkduet-patches/glm-exl3-entry.sh"]
+  network_mode: host
+  # A lone rank cannot form the TP=2 group. Pair restarts only, via
+  # sparkduetctl.sh or zorost-lane-guard.
+  restart: "no"
+  ipc: host
+  shm_size: 32gb
+  devices:
+    - /dev/infiniband:/dev/infiniband
+  cap_add:
+    - IPC_LOCK
+  ulimits:
+    memlock: -1
+    stack: 67108864
+  volumes:
+    - ${HF_CACHE}:/root/.cache/huggingface
+    - ${MODEL_DIR}:${MODEL_DIR}:ro
+    - ../patches:/sparkduet-patches:ro
+    - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}:/root/.cache/vllm
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - capabilities: ["gpu"]
+
+x-glm-exl3-env: &glm-exl3-env
+  HF_HOME: /root/.cache/huggingface
+  HF_HUB_OFFLINE: "${HF_HUB_OFFLINE}"
+  NCCL_IB_HCA: ${NCCL_IB_HCA}
+  NCCL_SOCKET_IFNAME: ${NCCL_SOCKET_IFNAME}
+  GLOO_SOCKET_IFNAME: ${GLOO_SOCKET_IFNAME:-${NCCL_SOCKET_IFNAME}}
+  NCCL_IB_GID_INDEX: "${NCCL_IB_GID_INDEX}"
+  VLLM_ENGINE_READY_TIMEOUT_S: "3600"
+  PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+  FLASHINFER_DISABLE_VERSION_CHECK: "1"
+  UCX_MEM_MMAP_HOOK_MODE: none
+  UCX_RCACHE_MAX_UNRELEASED: "1024"
+  TRITON_CACHE_DIR: /root/.cache/vllm/jit/triton
+  TILELANG_CACHE_DIR: /root/.cache/vllm/jit/tilelang
+  TORCH_FR_BUFFER_SIZE: "2000"
+  TORCH_NCCL_TRACE_BUFFER_SIZE: "2000"
+  TORCH_NCCL_DUMP_ON_TIMEOUT: "1"
+  # Overlay knobs. These are the overlay's own defaults, set explicitly so the
+  # lane reads as configuration rather than luck.
+  EXL3_FUSED_MOE: "${G_EXL3_FUSED_MOE:-1}"
+  GLM53_MIXED_PREFILL_CHUNK: "${G_EXL3_MIXED_PREFILL_CHUNK:-skip}"
+  GLM53_SUPPRESS_STOPS_IN_REASONING: "${G_EXL3_SUPPRESS_STOPS:-1}"
+
+services:
+  glm-head:
+    <<: *glm-exl3-common
+    container_name: sparkduet-glm-head
+    environment:
+      <<: *glm-exl3-env
+      VLLM_HOST_IP: ${MASTER_ADDR}
+    command: >
+      ${G_EXL3_MODEL}
+      --served-model-name ${G_EXL3_SERVED_NAME}
+      --quantization exl3
+      --tensor-parallel-size 2
+      --distributed-executor-backend mp
+      --nnodes 2 --node-rank 0
+      --master-addr ${MASTER_ADDR} --master-port ${MASTER_PORT}
+      --kv-cache-dtype ${G_EXL3_KV_DTYPE}
+      --max-model-len ${G_EXL3_MAX_MODEL_LEN}
+      --max-num-seqs ${G_EXL3_MAX_NUM_SEQS}
+      --max-num-batched-tokens ${G_EXL3_MAX_NUM_BATCHED_TOKENS}
+      --gpu-memory-utilization ${G_EXL3_GPU_MEM_UTIL}
+      --speculative-config '{"method":"mtp","num_speculative_tokens":${G_EXL3_MTP_NUM_TOKENS}}'
+      --cudagraph-capture-sizes ${G_EXL3_CUDAGRAPH_SIZES}
+      --enable-prefix-caching
+      --no-enable-flashinfer-autotune
+      --skip-mm-profiling
+      --limit-mm-per-prompt '{"image":4,"video":1}'
+      --chat-template /opt/glm53/chat_template.jinja
+      --enable-auto-tool-choice
+      --tool-call-parser glm47
+      --reasoning-parser glm45
+      --default-chat-template-kwargs '{"enable_thinking": false}'
+      --generation-config vllm
+      --host ${G_HOST}
+      --port ${G_PORT}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${G_PORT}/v1/models || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 40
+      start_period: 3600s
+
+  glm-worker:
+    <<: *glm-exl3-common
+    container_name: sparkduet-glm-worker
+    environment:
+      <<: *glm-exl3-env
+      VLLM_HOST_IP: ${WORKER_FABRIC_IP}
+    command: >
+      ${G_EXL3_MODEL}
+      --served-model-name ${G_EXL3_SERVED_NAME}
+      --quantization exl3
+      --tensor-parallel-size 2
+      --distributed-executor-backend mp
+      --nnodes 2 --node-rank 1 --headless
+      --master-addr ${MASTER_ADDR} --master-port ${MASTER_PORT}
+      --kv-cache-dtype ${G_EXL3_KV_DTYPE}
+      --max-model-len ${G_EXL3_MAX_MODEL_LEN}
+      --max-num-seqs ${G_EXL3_MAX_NUM_SEQS}
+      --max-num-batched-tokens ${G_EXL3_MAX_NUM_BATCHED_TOKENS}
+      --gpu-memory-utilization ${G_EXL3_GPU_MEM_UTIL}
+      --speculative-config '{"method":"mtp","num_speculative_tokens":${G_EXL3_MTP_NUM_TOKENS}}'
+      --cudagraph-capture-sizes ${G_EXL3_CUDAGRAPH_SIZES}
+      --enable-prefix-caching
+      --no-enable-flashinfer-autotune
+      --skip-mm-profiling
+      --limit-mm-per-prompt '{"image":4,"video":1}'
+      --generation-config vllm

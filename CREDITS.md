@@ -32,7 +32,15 @@ built on a large body of public work. Full source list with links: `docs/RESEARC
   `patches/next-sglang-sm121/` (sglang#36845's Triton packed-varlen fallback,
   sglang#36806 keeping TRT-LLM sparse decode off SM121, and NVFP4 KV for the QSA
   pools) is what makes NEXTN speculative decoding serve this checkpoint on GB10
-  at all, together with the measured recipe our lane file mirrors.
+  at all, together with the measured recipe our lane file mirrors. Lane G on
+  EXL3 uses their overlay image and the later SM121 patches in
+  `patches/glm-exl3-sm121/` (prefix-cache hit, decode-floor, stops inside
+  reasoning), MIT, notices preserved.
+- **Brandon M. Music (brandonmusic)**, EXL3/TR3 4bpw of GLM-5.3-Flash
+  (`brandonmusic/GLM-5.3-Flash-tr3-4bpw`) under the ShapleyMcg License v1.0.
+  Attribution is a condition of that grant: see
+  `patches/glm-exl3-sm121/README.md`.
+- **Z.ai**, GLM-5.3-Flash base weights (MIT).
 - **entrpi**, ds4-on-spark: the memory-governor philosophy (typed refusals over
   crashes), demand-mapped context, disk-persisted KV banks, and the 9-workload
   DSpark acceptance suite that proves workload-bound acceptance.

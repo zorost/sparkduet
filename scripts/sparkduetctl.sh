@@ -36,6 +36,8 @@ validate_config() {
               G_PORT G_MAX_MODEL_LEN G_MAX_NUM_SEQS G_MAX_NUM_BATCHED_TOKENS \
               G_LONG_PREFILL_TOKEN_THRESHOLD G_BLOCK_SIZE G_KV_CACHE_MEMORY \
               G_MTP_NUM_TOKENS \
+              G_EXL3_MAX_MODEL_LEN G_EXL3_MAX_NUM_SEQS G_EXL3_MAX_NUM_BATCHED_TOKENS \
+              G_EXL3_MTP_NUM_TOKENS \
               LANE_MAX_INFLIGHT SPEC_WINDOW_S SPEC_MIN_DRAFT_TOKENS NCCL_IB_GID_INDEX; do
     v="$(validate_int "$knob" "${!knob:-}")" || exit 1
     [[ -n "$v" ]] && printf -v "$knob" '%s' "$v"
@@ -87,19 +89,25 @@ doctor() {
     [[ -n "$nh" ]] || echo "WARN: head missing Flash-Next image ${N_VLLM_IMAGE:-unset}"
     [[ -n "$nw" ]] || echo "WARN: worker missing Flash-Next image ${N_VLLM_IMAGE:-unset}"
   fi
-  if [[ "${G_MODEL:0:1}" == "/" ]]; then
-    if [[ -f "$G_MODEL/config.json" ]]; then
-      ssh_worker "test -f '$G_MODEL/config.json'" \
-        || echo "WARN: worker missing GLM-5.3-Flash weights at $G_MODEL (prepare-models.sh --model glm-flash)"
-      echo "GLM-5.3-Flash weights present on head: $G_MODEL"
+  local g_model g_image g_stage
+  if [[ "${G_ENGINE:-vllm}" == exl3 ]]; then
+    g_model="${G_EXL3_MODEL:-}"; g_image="${G_EXL3_IMAGE:-}"; g_stage="glm-exl3"
+  else
+    g_model="${G_MODEL:-}"; g_image="${G_VLLM_IMAGE:-}"; g_stage="glm-flash"
+  fi
+  if [[ "${g_model:0:1}" == "/" ]]; then
+    if [[ -f "$g_model/config.json" ]]; then
+      ssh_worker "test -f '$g_model/config.json'" \
+        || echo "WARN: worker missing GLM-5.3-Flash weights at $g_model (prepare-models.sh --model $g_stage)"
+      echo "GLM-5.3-Flash weights present on head: $g_model"
     else
-      echo "WARN: GLM-5.3-Flash weights not staged at $G_MODEL (prepare-models.sh --model glm-flash)"
+      echo "WARN: GLM-5.3-Flash weights not staged at $g_model (prepare-models.sh --model $g_stage)"
     fi
     local gh gw
-    gh=$(docker image inspect "${G_VLLM_IMAGE:-}" --format '{{.Id}}' 2>/dev/null || true)
-    gw=$(ssh_worker "docker image inspect '${G_VLLM_IMAGE:-}' --format '{{.Id}}'" 2>/dev/null || true)
-    [[ -n "$gh" ]] || echo "WARN: head missing GLM image ${G_VLLM_IMAGE:-unset}"
-    [[ -n "$gw" ]] || echo "WARN: worker missing GLM image ${G_VLLM_IMAGE:-unset}"
+    gh=$(docker image inspect "$g_image" --format '{{.Id}}' 2>/dev/null || true)
+    gw=$(ssh_worker "docker image inspect '$g_image' --format '{{.Id}}'" 2>/dev/null || true)
+    [[ -n "$gh" ]] || echo "WARN: head missing GLM image ${g_image:-unset}"
+    [[ -n "$gw" ]] || echo "WARN: worker missing GLM image ${g_image:-unset}"
   fi
   # fabric: sysfs is always present on the host; ibstat usually is not
   if compgen -G "/sys/class/infiniband/*/ports/*/state" >/dev/null; then
@@ -191,21 +199,33 @@ start_next() { # worker rank first, then head. Same fabric as depth.
   compose_head   "$nfile" up -d next-head
 }
 start_glm() { # worker rank first, then head. Same fabric as depth.
-  [[ -f "${G_MODEL}/config.json" ]] || die "GLM-5.3-Flash weights missing at $G_MODEL (prepare-models.sh --model glm-flash)"
-  local gh gw
-  gh=$(docker image inspect "${G_VLLM_IMAGE}" --format '{{.Id}}' 2>/dev/null || true)
-  gw=$(ssh_worker "docker image inspect '${G_VLLM_IMAGE}' --format '{{.Id}}'" 2>/dev/null || true)
-  [[ -n "$gh" ]] || die "head missing image $G_VLLM_IMAGE (docker pull it)"
-  [[ -n "$gw" ]] || die "worker missing image $G_VLLM_IMAGE (docker pull it there)"
+  # Both engines serve GLM-5.3-Flash on the same :30000 hop under the same
+  # container names, differing in quantization: NVFP4 weights on the house
+  # image, or EXL3/TR3 4bpw on the MiaAI-Lab overlay. Both speculate with MTP.
+  # See the two lane files.
+  local gh gw gfile gimg gmodel
+  case "${G_ENGINE:-vllm}" in
+    vllm) gfile=lane-glm.compose.yml;      gimg="${G_VLLM_IMAGE}"; gmodel="${G_MODEL}" ;;
+    exl3) gfile=lane-glm-exl3.compose.yml; gimg="${G_EXL3_IMAGE}"; gmodel="${G_EXL3_MODEL}" ;;
+    *) die "G_ENGINE must be vllm or exl3 (got '${G_ENGINE}')" ;;
+  esac
+  [[ -f "${gmodel}/config.json" ]] || die "GLM-5.3-Flash weights missing at $gmodel (prepare-models.sh --model glm-flash|glm-exl3)"
+  gh=$(docker image inspect "$gimg" --format '{{.Id}}' 2>/dev/null || true)
+  gw=$(ssh_worker "docker image inspect '$gimg' --format '{{.Id}}'" 2>/dev/null || true)
+  [[ -n "$gh" ]] || die "head missing image $gimg (docker pull it)"
+  [[ -n "$gw" ]] || die "worker missing image $gimg (docker pull it there)"
+  # GB10 unified memory: a loaded library GGUF counts against the 0.82 check.
+  # Unload first so Spark 2 can clear ~100 GiB. The library reloads on demand.
+  ssh_worker "curl -fsS -X POST http://127.0.0.1:30003/api/models/unload >/dev/null 2>&1 || true"
   # GB10: NVRM needs MemFree for the KV slab. Weight load refills page cache.
   sudo -n sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches' || true
   ssh_worker "sudo -n sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'" || true
   mkdir -p "$ROOT/results"
   nohup "$ROOT/scripts/cache_flusher.sh" >>"$ROOT/results/cache-flusher.log" 2>&1 &
   ssh_worker "mkdir -p '${SPARKDUET_DIR:-$ROOT}/results'; nohup '${SPARKDUET_DIR:-$ROOT}/scripts/cache_flusher.sh' >>'${SPARKDUET_DIR:-$ROOT}/results/cache-flusher.log' 2>&1 &" || true
-  compose_worker lane-glm.compose.yml up -d glm-worker
+  compose_worker "$gfile" up -d glm-worker
   sleep 20
-  compose_head   lane-glm.compose.yml up -d glm-head
+  compose_head   "$gfile" up -d glm-head
 }
 start_fleet() {
   # Lane F profile resolution. Fit rule: one-node models only (see the compose header).
@@ -263,7 +283,7 @@ stop_all() {
   # Both lane N engine files are torn down. They share service and container
   # names, so leaving the inactive one out would risk an orphaned rank holding
   # :30000 while the other engine boots.
-  for f in lane-depth lane-next lane-next-sglang lane-glm lane-fleet lane-pd; do
+  for f in lane-depth lane-next lane-next-sglang lane-glm lane-glm-exl3 lane-fleet lane-pd; do
     compose_head "$f.compose.yml" down 2>/dev/null || true
     compose_worker "$f.compose.yml" down 2>/dev/null || true
   done
@@ -281,8 +301,15 @@ case "$cmd" in
             D_PORT="${N_PORT:-$D_PORT}" DS_SERVED_NAME="$N_SERVED_NAME" D_MAX_NUM_SEQS="$N_MAX_NUM_SEQS" \
               bash "$ROOT/scripts/warmup.sh"
           elif [[ "$arg" == glm ]]; then
-            D_PORT="${G_PORT:-$D_PORT}" DS_SERVED_NAME="$G_SERVED_NAME" D_MAX_NUM_SEQS="$G_MAX_NUM_SEQS" \
-              bash "$ROOT/scripts/warmup.sh"
+            # Unlike lane N, the two GLM engines serve different checkpoints, so
+            # the warmup has to ask for the id the running engine advertises.
+            if [[ "${G_ENGINE:-vllm}" == exl3 ]]; then
+              D_PORT="${G_PORT:-$D_PORT}" DS_SERVED_NAME="$G_EXL3_SERVED_NAME" D_MAX_NUM_SEQS="$G_EXL3_MAX_NUM_SEQS" \
+                bash "$ROOT/scripts/warmup.sh"
+            else
+              D_PORT="${G_PORT:-$D_PORT}" DS_SERVED_NAME="$G_SERVED_NAME" D_MAX_NUM_SEQS="$G_MAX_NUM_SEQS" \
+                bash "$ROOT/scripts/warmup.sh"
+            fi
           else
             D_PORT="$port" DS_SERVED_NAME="${QWEN_SERVED_NAME}" D_MAX_NUM_SEQS="${F_MAX_NUM_SEQS}" \
               bash "$ROOT/scripts/warmup.sh"

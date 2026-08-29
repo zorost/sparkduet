@@ -113,11 +113,19 @@ Not the default flagship until a measured A/B on this pair says otherwise.
 - Vendor card [reported]: ahead of DeepSeek-V4-Flash-0731 on SWE-bench Pro
   (62.5 vs 56.0) and CoWorkBench (73.9 vs 45.1); behind on NL2Repo (48.1 vs
   54.2). No [M-here] artifacts yet. Independent benches have not landed.
-- Engine: `vllm/vllm-openai:qwen38-flash-next`. `patches/next-ple-fp8.py`
-  registers FP8 PLE `weight_scale` as a buffer so the ModelOpt hybrid
-  checkpoint loads. First patched boot on this pair: 12 min to tokens.
+- Engines, picked by `N_ENGINE`. `vllm` is
+  `vllm/vllm-openai:qwen38-flash-next` plus `patches/next-ple-fp8.py` so the
+  ModelOpt hybrid PLE loads. No speculation on this checkpoint. `sglang` is
+  the SM121-patched image from `patches/next-sglang-sm121/` and runs NEXTN
+  from the in-checkpoint MTP layer (steps 3, topk 1, draft 4). Stock
+  `lmsysorg/sglang:qwen38flashnext` either fails to compile FA4 CuTe or
+  silently decodes token id 0. Same `:30000`, same served id. The Lab pair
+  runs `N_ENGINE=sglang`. First patched vLLM boot on this pair: 12 min to
+  tokens. NEXTN measured [M-here]: math 49.2, code 38.4, tool 42.1, prose
+  34.3 tok/s at c=1, thinking off
+  (`results/2026-08-28-flash-next-laneN-sglang-nextn-spec.*`).
 - Safety: no `--load-format dummy`, chunked prefill ≤1024, memory fraction
-  ≤0.82, n-gram table left on auto offload. House vLLM, same gateway.
+  ≤0.82, n-gram table left on auto offload. Same gateway.
 - Stage: `./scripts/prepare-models.sh --model flash-next`
 - Serve: `./scripts/sparkduetctl.sh switch next`
 - Back: `./scripts/sparkduetctl.sh switch depth`
@@ -152,7 +160,34 @@ Not the default flagship until a measured A/B on this pair says otherwise.
 - Parsers: `--tool-call-parser glm47`, `--reasoning-parser glm45`.
   `VLLM_ENGINE_READY_TIMEOUT_S=3600`.
 - Stage: `./scripts/prepare-models.sh --model glm-flash`
-- Serve: `./scripts/sparkduetctl.sh switch glm`
+- Serve: `./scripts/sparkduetctl.sh switch glm` with `G_ENGINE=vllm`
+- Back: `./scripts/sparkduetctl.sh switch depth`
+
+## Swap lane: GLM-5.3-Flash EXL3/TR3 4bpw (Lane G, `G_ENGINE=exl3`)
+
+Same hop and container names as the NVFP4 lane. Never beside it: one
+`G_ENGINE` at a time.
+
+- Checkpoint: `brandonmusic/GLM-5.3-Flash-tr3-4bpw`, pinned at
+  `5ab363a8dcf6405955fd5f99671e01a1c9fb124b`, ~164 GiB, 120 shards.
+  ShapleyMcg License v1.0. Attribution is a condition of that grant; the
+  required notice lives in `patches/glm-exl3-sm121/README.md`. Base model
+  `zai-org/GLM-5.3-Flash` is MIT.
+- Why this engine exists: quality per byte. An independent teacher-logit
+  KLD panel puts EXL3/TR3 4bpw at 0.024555 nats against NVFP4's 0.060535
+  at the same footprint, level with official FP8 at 54% of the bytes
+  [M-else]. Speed is not the claim. MiaAI-Lab's 62.9 tok/s headline
+  [M-else] needs DFlash2 (`incoai/GLM-5.3-Flash-DFlash2`, CC BY-NC-ND
+  4.0), which this repo will not ship. The lane runs the license-clean
+  MTP rollback (`MTP_TOKENS=2`).
+- Engine: `ghcr.io/miaai-lab/glm-5.3-flash-2x-dgx-sparks:exl3`. The
+  published tag predates four patches; `glm-exl3-entry.sh` bind-mounts
+  `patches/glm-exl3-sm121/` and refuses to serve if any file is missing.
+  `G_EXL3_GPU_MEM_UTIL=0.80` is the house ceiling: 0.82 misses by ~0.7 GiB
+  on Spark 2 after reboot with Comfy and the desktop session.
+- Parsers: `--tool-call-parser glm47`, `--reasoning-parser glm45`.
+- Stage: `./scripts/prepare-models.sh --model glm-exl3`
+- Serve: set `G_ENGINE=exl3`, then `./scripts/sparkduetctl.sh switch glm`
 - Back: `./scripts/sparkduetctl.sh switch depth`
 
 ## When the answer is neither
@@ -171,7 +206,8 @@ Not the default flagship until a measured A/B on this pair says otherwise.
 - Want the Flash-Next preview on the same pair → **Lane N**,
   `switch next`, then A/B against depth before changing the default.
 - Want GLM-5.3-Flash (vision, MIT, 18B active) on the same pair → **Lane G**,
-  `switch glm`, dedicated vLLM image, then A/B against depth.
+  `switch glm`. `G_ENGINE=vllm` is NVFP4; `G_ENGINE=exl3` is the quality-per-byte
+  checkpoint the Lab pair runs. Then A/B against depth.
 - Many concurrent agents, mixed prompt sizes → **Qwen3.8-27B or a quantized
   DeepSeek build, Lane F**, one-node-fit models only.
 - Vision-native or Apache-2.0-purist fleet, moderate context → **Qwen3.8-27B, Lane F**.
