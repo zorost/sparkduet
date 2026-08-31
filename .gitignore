@@ -45,3 +45,8 @@ spark_term.py
 
 # ---- Marketing / social drafts (local only, never published) ----
 social/
+
+# ---- License-restricted research overrides. Never commit this tree. ----
+# Public lane files stay on the license-clean defaults. A file here is a
+# local-only overlay (non-commercial / NC-ND / unpublished grant).
+local/restricted/

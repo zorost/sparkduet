@@ -433,6 +433,7 @@ sparkduet/
 │   ├── BENCHMARK-PROTOCOL.md  # binding measurement rules
 │   ├── COMPARISON.md          # vs the other DGX Spark recipes, regime by regime
 │   ├── MODELS.md              # choosing checkpoints for this hardware
+│   ├── LOCAL-OVERLAYS.md      # gitignored research overrides; public lanes stay clean
 │   ├── MODEL-SWAP.md          # the 30-minute swap checklist + branch convention
 │   ├── FIELD-NOTES.md         # deployment lessons from live clusters
 │   ├── RESEARCH.md            # the sourced evidence base

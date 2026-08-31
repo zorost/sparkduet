@@ -181,6 +181,9 @@ Same hop and container names as the NVFP4 lane. Never beside it: one
   [M-else] needs DFlash2 (`incoai/GLM-5.3-Flash-DFlash2`, CC BY-NC-ND
   4.0), which this repo will not ship. The lane runs the license-clean
   MTP rollback (`MTP_TOKENS=2`).
+  A gitignored `local/restricted/` tree can override the same-named
+  compose for local research. Tracked files stay MTP. See
+  `docs/LOCAL-OVERLAYS.md`.
 - Engine: `ghcr.io/miaai-lab/glm-5.3-flash-2x-dgx-sparks:exl3`. The
   published tag predates four patches; `glm-exl3-entry.sh` bind-mounts
   `patches/glm-exl3-sm121/` and refuses to serve if any file is missing.

@@ -76,6 +76,10 @@ for line in env.splitlines():
               line.split("=", 1)[1].lstrip().startswith(('"', "'")))
 check("speculator is MTP", '"method":"mtp"' in x_cmd)
 check("no DFlash2 anywhere", "dflash" not in x_cmd.lower() and "dflash" not in x_entry.lower())
+ignore = (root / ".gitignore").read_text()
+check("restricted overlay is gitignored", "local/restricted/" in ignore)
+ctl_maps = "compose_rel" in ctl and "local/restricted/" in ctl
+check("ctl prefers a local/restricted compose when present", ctl_maps)
 check("packed fp8 KV, not NVFP4", "G_EXL3_KV_DTYPE=fp8" in env and "nvfp4" not in x_cmd.lower())
 check("glm parsers on exl3", "--tool-call-parser glm47" in x and "--reasoning-parser glm45" in x)
 

@@ -47,8 +47,22 @@ validate_config() {
 
 ssh_worker() { ssh -o BatchMode=yes -o ConnectTimeout=8 "${WORKER_USER}@${WORKER_HOST}" "$@"; }
 
-compose_head()   { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_DIR/$1" "${@:2}"; }
-compose_worker() { ssh_worker "cd '${SPARKDUET_DIR:-$ROOT}' && docker compose --env-file sparkduet.env -f 'configs/$1' ${*:2}"; }
+# Prefer a same-named file under local/restricted/ when present. That tree is
+# gitignored. Tracked configs/ stay the public defaults.
+compose_rel() {
+  local name="$1"
+  if [[ -f "$ROOT/local/restricted/$name" ]]; then
+    printf '%s' "local/restricted/$name"
+  else
+    printf '%s' "configs/$name"
+  fi
+}
+compose_head()   { docker compose --env-file "$ENV_FILE" -f "$ROOT/$(compose_rel "$1")" "${@:2}"; }
+compose_worker() {
+  local rel
+  rel="$(compose_rel "$1")"
+  ssh_worker "cd '${SPARKDUET_DIR:-$ROOT}' && docker compose --env-file sparkduet.env -f '$rel' ${*:2}"
+}
 
 doctor() {
   load_env; validate_config
