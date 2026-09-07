@@ -64,7 +64,7 @@ What that means in practice, on the same two boxes, in the same day:
 - [Swapping models and branches](#when-the-next-model-drops)
 - [Running it cool](#running-it-cool)
 - [Measured numbers](#measured-projected-or-hearsay)
-- [How it compares](#how-it-compares-to-the-other-dgx-spark-recipes)
+- [How it compares](#how-it-compares-to-other-approaches)
 - [Repository map](#repository-map)
 
 ## The fit rule (read this before anything else)
@@ -276,16 +276,14 @@ the exact correction).
 
 <!-- ladder: end -->
 
-## How it compares to the other DGX Spark recipes
+## How it compares to other approaches
 
-Short version: a one-model recipe is the reference for serving this one model
-deeply, and if that is your whole job, run it as shipped. SparkDuet runs the
-same lineage as one lane and adds the rest of what a pair is for: the
-on-demand library, the fine-tune lane, reversibility, and per-workload
-measurement. The full praise-forward, regime-by-regime table with both sides'
-boot lines is in `docs/COMPARISON.md`.
+Short version: a one-model recipe can be the right answer if that model is
+your whole job. SparkDuet is the pair: routed lanes, an on-demand library,
+a fine-tune lane, reversibility, and per-workload measurement. The
+regime-by-regime table is in `docs/COMPARISON.md`.
 
-![Where each recipe fits: single deep recipes beside SparkDuet's operating model](docs/diagrams/sparkduet-vs-field.svg)
+![Other approaches beside SparkDuet's operating model](docs/diagrams/sparkduet-vs-field.svg)
 
 ## Repository map
 
@@ -316,13 +314,13 @@ sparkduet/
 │   ├── ARCHITECTURE.md        # the design and the arithmetic behind it
 │   ├── RUNBOOK.md             # day-2 ops + harness configs
 │   ├── BENCHMARK-PROTOCOL.md  # binding measurement rules
-│   ├── COMPARISON.md          # vs the other DGX Spark recipes, regime by regime
+│   ├── COMPARISON.md          # vs other approaches, regime by regime
 │   ├── MODELS.md              # choosing checkpoints for this hardware
 │   ├── MODEL-SWAP.md          # the 30-minute swap checklist + branch convention
 │   ├── FIELD-NOTES.md         # deployment lessons from live clusters
 │   ├── RESEARCH.md            # the sourced evidence base
 │   └── diagrams/              # architecture, fit rule, honesty, Lab header
-├── patches/                   # container-start hotfixes (one-model recipe lineage, credited)
+├── patches/                   # container-start hotfixes applied at boot
 └── results/                   # dated benchmark artifacts (JSON + markdown)
 ```
 
@@ -333,18 +331,16 @@ sparkduet/
   proves the fabric before trusting it, and measures honestly.
 - Not a managed product. No auth, no TLS, no multi-tenancy: put your own
   gateway in front (see `SECURITY.md`).
-- Not a benchmark-winning machine. Where another recipe or engine is better
-  for your case, `docs/COMPARISON.md` says so and links it.
+- Not a benchmark-winning machine. Where another approach is better for
+  your case, `docs/COMPARISON.md` says so.
 
-## Standing on shoulders
+## A complete pair
 
-The two-node DeepSeek-on-Spark lineage this builds on, and every measurement
-we cite, is credited in `CREDITS.md` and sourced in `docs/RESEARCH.md`. The
-short version: one-model recipe proved the TP=2 recipe and its results culture;
-Anemll maintains the image line; the DGX Spark forum community did the
-kernel-level heavy lifting. SparkDuet's contribution is the lane model, the
+SparkDuet is a first-party two-Spark operating layer: the lane model, the
 fit-rule honesty, the fine-tuning integration, and tooling that refuses to
-publish a number it cannot defend.
+publish a number it cannot defend. Foundations we depend on (weights,
+engines, the Anemll image pin) are listed in `CREDITS.md`. The house
+evidence base is `docs/RESEARCH.md`.
 
 SparkDuet is built and maintained at [Zorost AI Lab](https://zorost.com/ai-lab).
 The Lab page for this project is
