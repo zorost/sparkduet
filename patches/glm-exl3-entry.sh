@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lane G EXL3 entry: apply the one-model recipe runtime patches, then vllm serve.
+# Lane G EXL3 entry: apply the house runtime patches, then vllm serve.
 #
 # The overlay image bakes and applies the EXL3 quantization method, the
 # FLASHINFER_MLA_SPARSE_SM120 NoPE padding, patch_model_overrides and the
@@ -15,7 +15,7 @@ mkdir -p /root/.cache/vllm/jit/triton /root/.cache/vllm/jit/tilelang \
          /root/.cache/vllm/nccl-flight
 
 # Baked in the image and already applied at build, except video placeholders,
-# which a one-model Dockerfile copies but does not run. Re-running an applied
+# which the image copies but does not run. Re-running an applied
 # patch is a no-op; each checks its own marker.
 for p in patch_glm_video_placeholders patch_glm5_drafter_group; do
   if [ -f "/opt/glm53/$p.py" ]; then

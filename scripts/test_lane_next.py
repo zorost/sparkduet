@@ -81,7 +81,7 @@ check("no per-rank docker restart", 'restart: "no"' in sg)
 check("ctl resolves host NCCL", "resolve_next_nccl" in ctl)
 check("compose mounts host NCCL dir", "N_SGLANG_NCCL_DIR" in sg)
 check("env example documents NCCL dir", "N_SGLANG_NCCL_DIR=" in env)
-# a one-model recipe's agent workaround and the GLM lanes: thinking off unless the client
+# House default, same as the GLM lanes: thinking off unless the client
 # asks. Without this, Cursor Flash-Next thinks until max_tokens.
 check("thinking off by default",
       "--default-chat-template-kwargs" in sg_cmd

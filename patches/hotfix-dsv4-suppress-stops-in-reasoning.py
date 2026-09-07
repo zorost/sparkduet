@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Keep client stop strings dormant until </think> (Anemll 0.1.1).
 
-Port of tonyd2wild Patch 5 / Capicua25x
-``0005-suppress-stops-in-reasoning.patch`` onto the Anemll image path:
+House suppress-stops overlay on the Anemll image path:
 
   /usr/local/lib/python3.12/dist-packages/vllm/v1/engine/detokenizer.py
 
-Do not bind-mount Tony's Stage-C file (``/opt/env/...``).
+Do not bind-mount a Stage-C file from ``/opt/env/...``.
 
 vLLM v1 matches ``stop`` against the whole stream. Think-in-prompt starts
 inside ``<think>``; CoT often restates harness stops like ``Question:``.
@@ -18,7 +17,7 @@ the same k+1 chunk as prior think tokens, ``stop_check_offset`` jumps past
 the marker so a stop in that tail cannot fire.
 
 Runtime opt-out (process-wide): ``DSPARK_SUPPRESS_STOPS_IN_REASONING=0``
-or Tony's ``VLLM_SUPPRESS_STOPS_IN_REASONING=0``.
+or ``VLLM_SUPPRESS_STOPS_IN_REASONING=0``.
 Skip applying this file: ``DSPARK_SKIP_SUPPRESS_STOPS_HOTFIX=1``.
 """
 from __future__ import annotations

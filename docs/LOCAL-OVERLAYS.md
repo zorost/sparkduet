@@ -33,8 +33,8 @@ This is what GitHub ships.
 2. `./scripts/prepare-models.sh --model glm-exl3` on the head (pins
    `brandonmusic/GLM-5.3-Flash-tr3-4bpw` rev `5ab363a8`, syncs to the
    worker).
-3. Pull `glm53-flash-sm121:exl3` on both
-   boxes.
+3. Set `G_EXL3_IMAGE` to an EXL3 vLLM image built for GB10 and load it
+   on both boxes.
 4. `./scripts/sparkduetctl.sh doctor` then `switch glm`. Pair only.
    Never start a lone GLM head.
 5. Prove `GET :30000/v1/models` and a short completion. Public compose

@@ -2,7 +2,7 @@
 """Does a long-context retrieval on the SGLang Flash-Next lane survive a
 concurrent request?
 
-Background: the 64k sweep of a one-model NVFP4 KV eval returned 64 tokens of
+Background: a 64k NVFP4 KV sweep on this pair returned 64 tokens of
 token id 0 ("!!!!") for niah/32768@0% while a second request was in flight, and
 passed 3/3 at the same depth when run serially. Token id 0 with HTTP 200 is the
 SM121 silent-corruption signature (sglang#36537). A lane that only lies while
@@ -75,7 +75,7 @@ def is_token_zero(text: str) -> bool:
 
 
 def is_token0_id_run(ids, run: int = 16) -> bool:
-    """Server-side abort rule from house commit 0f95001."""
+    """Server-side abort rule: 16 consecutive token-id-0 samples."""
     return len(ids) >= run and all(token == 0 for token in ids[-run:])
 
 
