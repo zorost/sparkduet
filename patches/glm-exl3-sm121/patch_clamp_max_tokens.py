@@ -3,8 +3,8 @@
 
 OpenCode and the AI SDK send 9999999 as unlimited. This image's
 ``TokenizeParams`` is frozen and rejects ``max_output > max_model_len``
-before generation is clamped to remaining context. a one-model 1M recipe
-does not fix that: 9999999 is still larger than 1000000.
+before generation is clamped to remaining context. A 1M ceiling does
+not fix that: 9999999 is still larger than 1000000.
 
 The OpenAI meaning of max_tokens is an upper bound. After this patch the
 input window is the full ``max_model_len``, and a sentinel larger than the

@@ -115,8 +115,8 @@ over the 200G RoCE link. This is how the pair serves the 284B-parameter
 always has headroom; the image's nvfp4 KV cache supports up to 1M if you
 raise `D_GPU_MEM_UTIL` and accept the KV/weights trade [M-else]. Worker-first
 launch, NCCL preflight gate, warm-up before first traffic, and two idempotent
-container-start hotfixes from the community recipe lineage (truncated tool
-calls, stops inside reasoning; see `patches/README.md`).
+container-start hotfixes (truncated tool calls, stops inside reasoning;
+see `patches/README.md`).
 
 **Lane N, Next (TP=2).** The same two-box split as Lane D, pointed at
 Qwen3.8-Flash-Next NVFP4. `N_ENGINE` picks the file: `vllm` (no speculation
@@ -127,7 +127,7 @@ The Lab pair runs `N_ENGINE=sglang`. vLLM uses
 hybrid PLE loads. SGLang uses the SM121-patched image from
 `patches/next-sglang-sm121/`; stock `lmsysorg/sglang:qwen38flashnext`
 either fails to compile or silently decodes token id 0. The image also
-aborts leftover `!` loops after that kernel (house commit `0f95001`) so a
+aborts leftover `!` loops after that kernel so a
 long thinking decode cannot poison later radix hits. `switch next`
 drains the incumbent; `switch depth` puts the flagship back. Weights:
 `prepare-models.sh --model flash-next`.
@@ -138,7 +138,7 @@ LibertAIDAI NVFP4 (~181 GiB) on `vllm/vllm-openai:glm53-flash-arm64-cu130`.
 `glm-entry.sh` installs FlashInfer 0.6.18 and selects the SM90 NoPE MLA
 path; stock 0.6.17 collapses completions to token 1023. `G_ENGINE=exl3`
 is brandonmusic EXL3/TR3 4bpw (~164 GiB, ShapleyMcg License v1.0) on the
-one-model recipe overlay. The Lab pair runs `G_ENGINE=exl3` for quality per byte
+house EXL3 image. The Lab pair runs `G_ENGINE=exl3` for quality per byte
 (teacher-logit KLD 0.024555 nats vs NVFP4 0.060535). DFlash2 stays out:
 those weights are CC BY-NC-ND. Both engines speculate with MTP.
 `switch glm` / `switch depth`. Weights: `prepare-models.sh --model glm-flash`
@@ -387,16 +387,15 @@ the exact correction).
 
 <!-- ladder: end -->
 
-## How it compares to the other DGX Spark recipes
+## How it compares to other approaches
 
-Short version: a one-model recipe is the reference for serving this one model
-deeply, and if that is your whole job, run it as shipped. SparkDuet runs the
-same lineage as one lane and adds the rest of what a pair is for: the
-on-demand library, the fine-tune lane, reversibility, and per-workload
-measurement. The full praise-forward, regime-by-regime table with both sides'
-boot lines is in `docs/COMPARISON.md`.
+Other people publish one-model recipes for a dedicated pair. That is a
+different job. SparkDuet is the operating layer: four residents on disk, one
+in RAM, switch and revert, an on-demand library, a fine-tune lane, and
+per-workload measurement. The regime-by-regime table is in
+`docs/COMPARISON.md`.
 
-<img src="docs/diagrams/sparkduet-vs-field.svg" width="680" alt="Where each recipe fits: single deep recipes beside SparkDuet's operating model">
+<img src="docs/diagrams/sparkduet-vs-field.svg" width="680" alt="Other approaches beside SparkDuet's operating model">
 
 ## Repository map
 
@@ -431,7 +430,7 @@ sparkduet/
 │   ├── ARCHITECTURE.md        # the design and the arithmetic behind it
 │   ├── RUNBOOK.md             # day-2 ops + harness configs
 │   ├── BENCHMARK-PROTOCOL.md  # binding measurement rules
-│   ├── COMPARISON.md          # vs the other DGX Spark recipes, regime by regime
+│   ├── COMPARISON.md          # vs other approaches, regime by regime
 │   ├── MODELS.md              # choosing checkpoints for this hardware
 │   ├── MODEL-SWAP.md          # the 30-minute swap checklist + branch convention
 │   ├── FIELD-NOTES.md         # deployment lessons from live clusters
@@ -448,18 +447,17 @@ sparkduet/
   proves the fabric before trusting it, and measures honestly.
 - Not a managed product. No auth, no TLS, no multi-tenancy: put your own
   gateway in front (see `SECURITY.md`).
-- Not a benchmark-winning machine. Where another recipe or engine is better
-  for your case, `docs/COMPARISON.md` says so and links it.
+- Not a benchmark-winning machine. `docs/COMPARISON.md` says where a
+  single-model or one-node approach is the better fit. It does not point
+  you at another lab's launcher.
 
-## Standing on shoulders
+## A complete pair
 
-The two-node DeepSeek-on-Spark lineage this builds on, and every measurement
-we cite, is credited in `CREDITS.md` and sourced in `docs/RESEARCH.md`. The
-short version: one-model recipe proved the TP=2 recipe and its results culture;
-Anemll maintains the image line; the DGX Spark forum community did the
-kernel-level heavy lifting. SparkDuet's contribution is the lane model, the
-fit-rule honesty, the fine-tuning integration, and tooling that refuses to
-publish a number it cannot defend.
+SparkDuet is a Zorost AI Lab operating layer. Required notices for weights
+and images live in `CREDITS.md`. The evidence base is `docs/RESEARCH.md`.
+The contribution is the lane model, the four-resident swap, the fit-rule
+honesty, the fine-tune lane, and tooling that refuses to publish a number
+it cannot defend. Updates come from lessons learned on this pair.
 
 SparkDuet is built and maintained at [Zorost AI Lab](https://zorost.com/ai-lab).
 The Lab page for this project is

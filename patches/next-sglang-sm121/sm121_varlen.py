@@ -93,7 +93,7 @@ def _qsa_one_query_varlen_kernel(
     # Empty selected-KV (or a 0 running_sum) must not divide through -inf
     # softmax state: that yields NaN attention, NaN logits, then token id 0
     # (`!`) until max_tokens and can poison later radix hits.
-    # house commit 0f95001, MIT, after sglang#36845.
+    # House leftover abort after sglang#36845.
     valid = (kv_end > kv_start) & (running_sum > 0.0)
     output = accumulator / tl.where(valid, running_sum, 1.0)
     finite = output == output

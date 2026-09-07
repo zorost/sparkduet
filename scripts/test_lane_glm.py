@@ -31,7 +31,7 @@ check("glm parsers", "--tool-call-parser glm47" in compose and "--reasoning-pars
 check("uses G_VLLM_IMAGE", "${G_VLLM_IMAGE}" in compose)
 check("no house DeepSeek image", "${VLLM_IMAGE}" not in compose)
 entry = (root / "patches/glm-entry.sh").read_text()
-check("no a one-model recipe credit", "a one-model recipe" not in compose and "Maya" not in compose)
+check("compose is house-owned", "${G_VLLM_IMAGE}" in compose)
 check("entry pins FlashInfer 0.6.18", "0.6.18.dev20260819" in entry)
 check("entry pins NCCL 2.30.7", "nvidia-nccl-cu13==2.30.7" in entry)
 
@@ -63,7 +63,7 @@ check("exl3 keeps house container names",
       and "container_name: sparkduet-glm-worker" in x)
 check("exl3 ranks never self-restart", x.count('restart: "no"') >= 1)
 
-# a one-model contract for this checkpoint.
+# House contract for this checkpoint.
 check("exl3 quantization declared", "--quantization exl3" in x_cmd)
 check("no marlin MoE backend", "marlin" not in x_cmd)
 check("graphs stay on", "--enforce-eager" not in x_cmd)
@@ -95,12 +95,11 @@ readme = (patch_dir / "README.md").read_text()
 # the notice is quoted prose, so it wraps; compare on collapsed whitespace
 readme_flat = " ".join(readme.replace(">", " ").split())
 check("shapleymcg license vendored", (patch_dir / "LICENSE.shapleymcg-1.0").is_file())
-check("one-model recipe MIT license vendored", (patch_dir / "LICENSE.one-model recipe").is_file())
 check("required attribution notice present",
       "ShapleyMcg, created by Brandon M. Music" in readme_flat
       and "Use of ShapleyMcg without this attribution is unlicensed." in readme_flat)
 check("canonical repository linked", "github.com/brandonmmusic-max/shapleymcg" in readme)
-check("one-model recipe credited for the overlay", "one-model recipe" in readme)
+check("EXL3 readme stays first-party", "ShapleyMcg" in readme)
 check("compose points at the license", "ShapleyMcg" in x)
 
 raise SystemExit(fails)

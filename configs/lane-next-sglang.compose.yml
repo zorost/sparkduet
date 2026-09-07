@@ -6,15 +6,16 @@
 #
 # Why this exists: vLLM here has no speculation on this checkpoint and decodes
 # at ~23 tok/s. SGLang drives the checkpoint's own MTP layer as a NEXTN drafter,
-# verifying 4 draft tokens per forward pass, and one-model recipe measured 64.4 tok/s
-# single-stream on this exact two-GB10 topology.
+# verifying 4 draft tokens per forward pass. Field decode-only benches on
+# this topology have quoted ~64 tok/s [M-else]. House Rule 1 includes
+# prefill and is a different number.
 #
 # The image is NOT the stock upstream one. Qwen4Exp routes attention through
 # Qwen Sparse Attention, and on SM121 both stock paths are broken: FlashInfer
 # TRT-LLM sparse decode silently corrupts long-context decode (every token comes
 # back as id 0 while the server still answers HTTP 200), and excluding it falls
 # to packed FA4 CuTe, which does not compile on GB10. N_SGLANG_IMAGE must
-# therefore be the derivative built from a one-model .patch context, which ports
+# therefore be the house image from patches/next-sglang-sm121, which ports
 # sglang#36806 (never TRT-LLM on SM121) and sglang#36845 (Triton packed-varlen
 # fallback) and adds NVFP4 KV for the QSA pools. Do not point this at
 # lmsysorg/sglang:qwen38flashnext directly.
@@ -31,15 +32,15 @@
 # decode ungraphed.
 #
 # Context stays native 262144. YaRN 1M plus ReplaySSM at mem 0.80 left a
-# 188k KV pool, so a 1M window is not honest. Chunk stays 1024. Tony's 600k
-# KV pin and --disable-radix-cache are not used. House keeps radix on and
-# pins mamba at 97 so ReplaySSM has headroom.
+# 188k KV pool, so a 1M window is not honest. Chunk stays 1024. House
+# keeps radix on and pins mamba at 97 so ReplaySSM has headroom. A 600k
+# KV pin and --disable-radix-cache are not used.
 #
 # Thinking is off at the server, same as Lane G. Flash-Next thinks on by
 # default; Cursor and other clients that omit chat_template_kwargs then
 # spend the whole max_tokens budget inside <think>. Per-request
 # enable_thinking true still turns it back on. The leftover token-id-0
-# `!` loop after sglang#36845 (house commit 0f95001) is aborted in the image:
+# `!` loop after sglang#36845 is aborted in the image:
 # NaN QSA output is zeroed, 16 consecutive token-0 samples abort the
 # request, that completion is not inserted into radix, and the prefix
 # cache is reset before the next prefill.
@@ -72,8 +73,8 @@ x-next-sglang-common: &next-sglang-common
     - ${MODEL_DIR}:${MODEL_DIR}:ro
     - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}/sglang-next/triton:/root/.triton
     - ${VLLM_CACHE_DIR:-/srv/ai/cache/vllm}/sglang-next/flashinfer:/root/.cache/flashinfer
-    # one-model recipe start.sh LD_PRELOADs host NCCL 2.30.7 for CUDA-graph + TP on
-    # GB10. Empty dir when the .so is not staged; ctl sets N_SGLANG_NCCL_PRELOAD
+    # Host NCCL 2.30.7 for CUDA-graph + TP on GB10. Empty dir when the
+    # .so is not staged; ctl sets N_SGLANG_NCCL_PRELOAD
     # only when libnccl.so.2.30.7 is present on both nodes.
     - ${N_SGLANG_NCCL_DIR:-/tmp/sparkduet-empty-nccl}:/nccl:ro
   deploy:

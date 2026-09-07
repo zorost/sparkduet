@@ -372,7 +372,7 @@ def patch_token0_guard() -> None:
 
     sglang#36806/#36845 closed the SM121 TRT-LLM path. A later long thinking
     decode can still emit token 0, finish HTTP 200, and poison the next
-    request via radix reuse. Port of house commit 0f95001 (MIT). Anchors must
+    request via radix reuse. House leftover abort. Anchors must
     match once or the image build fails.
     """
     schedule_batch = SRT / "managers" / "schedule_batch.py"

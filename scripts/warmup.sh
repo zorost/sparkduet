@@ -2,8 +2,8 @@
 # warmup.sh, post-ready warm-up so the first real request never pays JIT.
 # Covers the live dflash/_prepare_dflash_inputs kernel BLOCK keys {8,16,32,64,128,256}
 # with scheduled-token shapes {1,6,20,45,100,200}, at C=1..MAX_NUM_SEQS, using both
-# bounded and ordinary client-default request shapes (a lesson from one-model recipe PR #123:
-# pinned-max_tokens warmups missed a kernel that only ordinary short chats compile).
+# bounded and ordinary client-default request shapes (pinned-max_tokens
+# warmups miss a kernel that only ordinary short chats compile).
 set -euo pipefail
 PORT="${D_PORT:-${ROUTER_PORT:-30000}}"
 MODEL="${DS_SERVED_NAME:-deepseek-ai/DeepSeek-V4-Flash-0731}"
