@@ -59,8 +59,8 @@ what moves tok/s. Plan capacity from the class you run, not from a headline.
 | Tool-calling | **51.2 tok/s** | 0.50 |
 | Prose | **33.6 tok/s** | 0.23 |
 
-The same engine is 72 tok/s on math and 34 tok/s on prose because acceptance
-falls from 0.70 to 0.23. Artifacts:
+The same engine is 72 tok/s on math and 34 tok/s on prose [M-here] because
+acceptance falls from 0.70 to 0.23. Artifacts:
 `results/2026-08-25-deepseek-v4-flash-tp2-laneD-*`.
 
 ### KV pool and context: read your own boot line
@@ -81,7 +81,7 @@ Open WebUI, Caddy, and a Telegram bot. `docs/MODELS.md` walks the trade.
 | Capability | Result [M-here] | Artifact |
 |---|---|---|
 | On-demand 27B GGUF while the flagship idles | 9.7 tok/s, llama-swap cold-load | `results/2026-08-25-qwen27b-gguf-spark2-ondemand-standard-CLEAN.*` |
-| Same server during a TP=2 rank load (contention) | 1.4-2.2 tok/s, GPU silently lost | `results/...CONTENDED-laneD-boot-*` and `docs/FIELD-NOTES.md` §5 |
+| Same server during a TP=2 rank load (contention) | 1.4-2.2 tok/s [M-here], GPU silently lost | `results/...CONTENDED-laneD-boot-*` and `docs/FIELD-NOTES.md` §5 |
 | QLoRA fine-tune smoke on the worker | loss 2.12 -> 0.21 in 81 s | `finetune/` lane |
 | NCCL fabric after container RDMA fix | 42.0 GB/s bus BW (was 4.0 silently on TCP) | `scripts/nccl-check.sh` |
 
