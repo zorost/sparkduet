@@ -11,6 +11,12 @@
 # (vllm/vllm-openai:qwen38-flash-next). next-entry.sh applies the ModelOpt
 # hybrid PLE patch (FP8 ngram scale). Do not set VLLM_PLE_CPU_OFFLOAD: that
 # path is single-node only. Eager: default inductor compile can OOM GB10.
+#
+# This file is the house vLLM fallback. It is not the live Lane N engine
+# (that is SGLang). Comments only: a vLLM MTP + expert-parallel path can
+# be turned on later. This checkout keeps MTP off (N_MTP_NUM_TOKENS=0)
+# and no expert parallel. Keep KV_CACHE_DTYPE=auto. This checkpoint only
+# supports bf16 KV. Do not pass --kv-cache-dtype fp8.
 
 x-next-common: &next-common
   image: ${N_VLLM_IMAGE}

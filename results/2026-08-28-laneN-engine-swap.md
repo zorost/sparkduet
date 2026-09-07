@@ -4,12 +4,10 @@ Same weights (`RadixArk/Qwen3.8-Flash-Next-NVFP4`, ~135 GiB NVFP4), same TP=2
 topology, same `:30000` hop, same served id. Only the engine changed, so no
 picker, no catalog row, and no 9Router entry moved.
 
-Recipe and the SM121 kernel patches come from a one-model
-Qwen3.8-Flash-Next-Dual-DGX-Sparks (MIT, commit `344f9d0d`). The launch contract
-is expressed as `configs/lane-next-sglang.compose.yml` and selected by
-`N_ENGINE=sglang`; the upstream `start.sh` is deliberately not run, because a
-second orchestrator competing for :30000 is what took this lane down earlier the
-same day.
+The SM121 kernel patches live in `patches/next-sglang-sm121/`. The launch
+contract is `configs/lane-next-sglang.compose.yml`, selected by
+`N_ENGINE=sglang`. Do not run a second orchestrator against :30000: that is
+what took this lane down earlier the same day.
 
 ## Decode, same harness, same protocol
 

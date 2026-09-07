@@ -1,18 +1,13 @@
-# Flash-Next vs one-model recipe Dual-DGX-Sparks, 2026-08-29
+# Flash-Next field regression, 2026-08-29
 
-Upstream: [one-model Flash-Next recipe](docs/COMPARISON.md)
-commit `344f9d0`. Same commit the house vendored on 2026-08-28.
+House Lane N: SGLang NEXTN 3/1/4, NVFP4 KV, SM121 Triton fallback, chunk
+1024, mem-fraction 0.80, native 262k. Do not run a second launcher next to
+SparkDuet.
 
-## Verdict
-
-The live lane is already a one-model recipe: SGLang NEXTN 3/1/4, NVFP4 KV, SM121
-Triton fallback, chunk 1024, mem-fraction 0.80, native 262k. Kernel patches
-match the upstream `.patch/` files byte-for-byte. Do not run their `start.sh`
-next to SparkDuet.
-
-The 64.4 tok/s headline [M-else] is `sglang bench_serving` decode. House Rule 1 is
-`usage.completion_tokens / wall_time` and includes prefill. Those are different
-numbers. Engine decode during warmup reached 91 to 105 tok/s [M-here] at four streams.
+A 64.4 tok/s headline [M-else] is `sglang bench_serving` decode. House Rule 1
+is `usage.completion_tokens / wall_time` and includes prefill. Those are
+different numbers. Engine decode during warmup reached 91 to 105 tok/s
+[M-here] at four streams.
 
 ## What was wrong in the house, and what changed
 
@@ -29,8 +24,8 @@ Host NCCL 2.30.7 is still not staged. The image uses NCCL 2.29.7. Compose and
 `sparkduetctl.sh` now pin `libnccl.so.2.30.7` when the file exists on both
 nodes. That is the remaining optional pin, not a missing kernel.
 
-YaRN 1M is a one-model recipe's script default. House stays at native 262144 so a swap does
-not change the picker contract. YaRN is not a decode-speed win.
+YaRN 1M is a common script default. House stays at native 262144 so a swap
+does not change the picker contract. YaRN is not a decode-speed win.
 
 ## Live boot (this afternoon)
 
@@ -68,9 +63,9 @@ Short-prompt C1/C2 (256 gen tokens, thinking off): 49.8 tok/s [M-here] single st
 70.7 aggregate at two streams. After the list prompt, engine
 `spec_accept_length` was 3.825 of 4 (rate 0.94).
 
-## Direct stream table vs a one-model recipe (same afternoon)
+## Direct stream table vs a decode-only headline (same afternoon)
 
-a one-model recipe published (`sglang bench_serving`, short structural decode):
+Published decode-only (`sglang bench_serving`, short structural decode) [M-else]:
 
 | Streams | TTFT | Aggregate | Per stream |
 |---|---:|---:|---:|

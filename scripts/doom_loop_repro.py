@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reproduce Flash-Next's leftover token-id-0 (`!`) doom loop.
 
-House leftover-token-0 repro (MIT, commit 0f95001).
+House leftover-token-0 repro for Lane N.
 A loop is reproduced when reasoning+content contain at least 16 consecutive
 `!` characters. After the long probe, a short follow-up checks whether the
 server poisoned later requests (sticky until both TP ranks restart).

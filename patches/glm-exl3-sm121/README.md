@@ -4,50 +4,43 @@ Runtime patches for the EXL3/TR3 4bpw serve of GLM-5.3-Flash on two DGX Sparks.
 
 ## Why these files are here
 
-The published overlay image
-`glm53-flash-sm121:exl3` predates three patches that
-are now in a one-model Dockerfile, plus a house clamp for OpenCode's 9999999
-`max_tokens` sentinel. Its `/opt/glm53/` carries ten files and none of these:
+The EXL3 vLLM image you pin as `G_EXL3_IMAGE` may predate four house
+patches. `glm-exl3-entry.sh` bind-mounts this directory over `/opt/glm53/`
+and applies them before `vllm serve`. A missing file is a hard failure.
 
-| File | What it fixes | In the image? |
+| File | What it fixes | In a stock overlay? |
 |---|---|---|
-| `patch_hybrid_prefix_hit.py` | prefix-cache block accounting on the hybrid mamba path | no |
-| `patch_scheduler_decode_floor.py` | mixed prefill stealing a running decode step (upstream issue #6) | no |
-| `patch_suppress_stops_in_reasoning.py` | client stop strings firing inside `<think>` | no |
+| `patch_hybrid_prefix_hit.py` | prefix-cache block accounting on the hybrid mamba path | often no |
+| `patch_scheduler_decode_floor.py` | mixed prefill stealing a running decode step | often no |
+| `patch_suppress_stops_in_reasoning.py` | client stop strings firing inside `<think>` | often no |
 | `patch_clamp_max_tokens.py` | OpenCode `max_tokens=9999999` 400s against `max_model_len` | no |
 
-The head script applies whatever exists under `/opt/glm53/`, so absent files fail
-open and the engine boots without the fix. `patch_hybrid_prefix_hit` is the one
-that matters for correctness: the lane runs `--enable-prefix-caching`, which is
-the code path it repairs. `glm-exl3-entry.sh` bind-mounts this directory over
-`/opt/glm53/` and applies all three before `vllm serve`.
+`patch_hybrid_prefix_hit` is the correctness fix: the lane runs
+`--enable-prefix-caching`. The other patches the image already applies
+(`patch_model_overrides`, `patch_glm_video_placeholders`,
+`patch_glm5_drafter_group`, the EXL3 quantization method, the aarch64 CPU
+allreduce stubs) stay in the image. Do not vendor them here.
 
-Rebuilding the image from a one-model current Dockerfile would bake these in and
-make the mount redundant. That build is long and the mount is equivalent, so the
-house lane mounts.
+## Not shipped: DFlash2
 
-The other patches the head path needs (`patch_model_overrides`,
-`patch_glm_video_placeholders`, `patch_glm5_drafter_group`, the EXL3 quantization
-method, the aarch64 CPU allreduce stubs) are already baked and applied in the
-image. Do not vendor them; the image copies are authoritative.
+A 62.9 tok/s headline [M-else] needs DFlash2 k=7. Those weights
+(`incoai/GLM-5.3-Flash-DFlash2`) are CC BY-NC-ND 4.0: non-commercial, no
+derivatives. This repo will not ship them. Lane G EXL3 runs license-clean
+MTP (`SPEC_METHOD=mtp`, `MTP_TOKENS=2`), the same speculator family the
+NVFP4 lane already used. Any `dflash2_*` files baked into an image stay
+inert because the lane never passes `--speculative-config method=dflash`.
 
-## Not vendored: DFlash2
-
-a one-model published numbers (62.9 tok/s single stream [M-else]) use DFlash2 k=7 as the
-speculator. `incoai/GLM-5.3-Flash-DFlash2` is licensed CC BY-NC-ND 4.0, which is
-non-commercial and forbids derivatives. The house lane cannot use it. Lane G EXL3
-runs the license-clean rollback one-model recipe documents, `SPEC_METHOD=mtp` with
-`MTP_TOKENS=2`, which is the same MTP speculation the NVFP4 lane already used.
-The `dflash2_*` and `patch_dflash2` files baked into the image stay inert because
-the lane never passes `--speculative-config method=dflash`.
+Public SparkDuet stays on MTP-2. A gitignored `local/restricted/` tree can
+override the same-named compose on a private pair. Tracked files stay MTP.
+See `docs/LOCAL-OVERLAYS.md`.
 
 ## Why EXL3 at all
 
 Quality per byte on this checkpoint. An independent teacher-logit panel
-(KLD, five cold runs, 25 sealed windows, 51,175 positions) puts EXL3/TR3 4bpw at
-0.024555 nats against NVFP4's 0.060535 at effectively the same footprint, level
-with official FP8 at 54 percent of the bytes. Speed is not the reason: without
-DFlash2, MTP k=2 measures near the NVFP4 lane.
+(KLD, five cold runs, 25 sealed windows, 51,175 positions) puts EXL3/TR3
+4bpw at 0.024555 nats against NVFP4's 0.060535 at effectively the same
+footprint, level with official FP8 at 54 percent of the bytes. Speed is
+not the reason: MTP k=2 measures near the NVFP4 lane.
 
 ## Attribution
 
@@ -78,14 +71,6 @@ result of this lane.
 
 The license is permissive for commercial use and excludes one named third party,
 unrelated to this deployment.
-
-### Overlay, GB10 serve recipe
-
-`patch_*.py` in this directory are from
-docs/COMPARISON.md, copyright 2026
-a one-model recipe's AI Lab, MIT (`LICENSE.one-model recipe`). The EXL3 vLLM quantization method, the
-FLASHINFER_MLA_SPARSE_SM120 NoPE padding, and the aarch64 exllamav3 stubs are
-that project's work.
 
 ### Base model
 

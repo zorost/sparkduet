@@ -24,26 +24,20 @@ not start.
 
 | File | Origin | Effect |
 |---|---|---|
-| `sm121_varlen.py` | sglang#36845, then house commit 0f95001 | Triton packed one-query varlen kernel matching the QSA call contract. Reads `cu_seqlens` on-device so CUDA-graph replay stays valid. Zeros non-finite attention so an empty selected-KV does not become token id 0. |
-| `apply_nvfp4_patches.py` | one-model recipe | Applied at image build. Forces `_resolve_trtllm_sparse_decode` to `None` on SM121 (sglang#36806) even if a newer base re-enables it, returns the Triton fallback from `_resolve_flash_attn_varlen_func` on SM121, wires NVFP4 KV for the QSA pools, and installs the leftover token-id-0 abort (16 consecutive zeros, no radix insert, prefix-cache reset). SM100/SM120 keep their native paths. |
-| `qsa_nvfp4_kv.py` | one-model recipe | NVFP4 KV cache method declaring plain BF16 dequant reads for every backend and phase, so the pool allocates packed FP4 plus per-block FP8 scales with no FP8 dequant workspace. |
+| `sm121_varlen.py` | sglang#36845, house leftover abort | Triton packed one-query varlen kernel matching the QSA call contract. Reads `cu_seqlens` on-device so CUDA-graph replay stays valid. Zeros non-finite attention so an empty selected-KV does not become token id 0. |
+| `apply_nvfp4_patches.py` | House build | Applied at image build. Forces `_resolve_trtllm_sparse_decode` to `None` on SM121 (sglang#36806) even if a newer base re-enables it, returns the Triton fallback from `_resolve_flash_attn_varlen_func` on SM121, wires NVFP4 KV for the QSA pools, and installs the leftover token-id-0 abort (16 consecutive zeros, no radix insert, prefix-cache reset). SM100/SM120 keep their native paths. |
+| `qsa_nvfp4_kv.py` | House build | NVFP4 KV cache method declaring plain BF16 dequant reads for every backend and phase, so the pool allocates packed FP4 plus per-block FP8 scales with no FP8 dequant workspace. |
 
 Every patch asserts on its anchor. A base-image layout change fails the build
 loudly instead of producing an image that quietly serves the broken path.
 
 ## Provenance
 
-Vendored from [one-model Flash-Next recipe](docs/COMPARISON.md)
-at commit `0f950012c8d8323acac9a08846a32ef7953f5f62` (29 Aug 2026 leftover
-token-id-0 abort on top of `344f9d0`), MIT. Kernel and apply scripts are
-ported from the `.patch/` context that `start.sh` generates. The house
-does not run `start.sh`. See `LICENSE.one-model recipe`.
+These files are the house SM121 build context. They implement the upstream
+SGLang issues named above. The lane is started as a pair by
+`sparkduetctl.sh` and recovered by `zorost-lane-guard`. Do not run a second
+orchestrator against `:30000`.
 
-The upstream repo is a self-contained launcher that manages its own containers.
-The house does not run it: lane N is started as a pair by `sparkduetctl.sh` and
-recovered by `zorost-lane-guard`, and a second orchestrator competing for
-:30000 is the exact failure that took the lane down on 2026-08-28. Only the
-build context is vendored; the launch contract lives in the lane file.
 `sparkduetctl.sh` will LD_PRELOAD host `libnccl.so.2.30.7` when that file
 exists on both nodes (`~/nccl-2.30.7/`). The image ships NCCL 2.29.7.
 

@@ -194,8 +194,8 @@ start_depth() { # worker rank first, then head
   compose_head   lane-depth.compose.yml up -d depth-head
 }
 resolve_next_nccl() {
-  # one-model recipe start.sh LD_PRELOADs ~/nccl-2.30.7/libnccl.so.2.30.7 for
-  # CUDA-graph + TP on GB10. Image NCCL is older (2.28.x). Only pin when
+  # Host NCCL 2.30.7 for CUDA-graph + TP on GB10. Image NCCL is older
+  # (2.28.x). Only pin when
   # the same .so exists on both nodes; otherwise mount an empty dir.
   local so="libnccl.so.2.30.7"
   local head_dir="${N_SGLANG_NCCL_DIR:-$HOME/nccl-2.30.7}"
@@ -239,7 +239,7 @@ start_next() { # worker rank first, then head. Same fabric as depth.
 start_glm() { # worker rank first, then head. Same fabric as depth.
   # Both engines serve GLM-5.3-Flash on the same :30000 hop under the same
   # container names, differing in quantization: NVFP4 weights on the house
-  # image, or EXL3/TR3 4bpw on the one-model recipe overlay. Both speculate with MTP.
+  # image, or EXL3/TR3 4bpw on the house EXL3 image. Both speculate with MTP.
   # See the two lane files.
   local gh gw gfile gimg gmodel
   case "${G_ENGINE:-vllm}" in

@@ -12,6 +12,6 @@
 | Picker (85% of pool) | 862447 |
 
 A full 1,048,576 request does not fit. Pickers advertise 862447, not 1M.
-a one-model recipe's 2.49M pool is util 0.835 on a dedicated pair. Not this boot.
+A quoted 2.49M pool is util 0.835 on a dedicated pair. Not this boot.
 
 1+1 thinking off: `2` in 0.267 s, 0 reasoning tokens.
