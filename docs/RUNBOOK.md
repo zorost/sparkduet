@@ -26,6 +26,10 @@ Rules the tooling enforces so you do not have to remember them:
   port active, disk and memory headroom.
 - Lane D starts worker-first (the headless rank must be listening before the
   head rank dials); stop is head-first. `sparkduetctl` owns that ordering.
+- The coupled lanes never self-restart a rank, so `start` watches both ranks
+  by name while it waits for the port. A rank that exits during boot fails
+  the start at once, with that rank's last log lines, instead of running out
+  the hour-long wait on a lane that is already down.
 - Every `start` writes a capture of what was running before to
   `results/incumbent-<date>/`. `revert` replays it. If you serve something you
   care about, additionally run `capture-incumbent` before your first

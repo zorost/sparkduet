@@ -62,6 +62,10 @@ check("exl3 keeps house container names",
       "container_name: sparkduet-glm-head" in x
       and "container_name: sparkduet-glm-worker" in x)
 check("exl3 ranks never self-restart", x.count('restart: "no"') >= 1)
+# With restart: "no" a rank that dies during boot sits Exited, so the boot wait
+# must inspect both ranks by name instead of grepping `docker ps` for Restarting.
+check("ctl fails the boot wait on an exited rank",
+      "exited|dead|restarting" in ctl and 'wait_ready "$arg" "$port"' in ctl)
 
 # House contract for this checkpoint.
 check("exl3 quantization declared", "--quantization exl3" in x_cmd)

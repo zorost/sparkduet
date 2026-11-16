@@ -305,18 +305,59 @@ refresh_pickers() {
   fi
 }
 
-wait_ready() { # port [timeout-steps]
-  local port="$1" n=0 max="${2:-240}" looping
+# Container names per lane: the rank on the head node, then the rank on the
+# worker node. Lane F runs one replica per node under the same name.
+lane_containers() { # lane -> "head-container worker-container"
+  case "$1" in
+    depth) echo "sparkduet-depth-head sparkduet-depth-worker";;
+    next)  echo "sparkduet-next-head sparkduet-next-worker";;
+    glm)   echo "sparkduet-glm-head sparkduet-glm-worker";;
+    fleet) echo "sparkduet-fleet sparkduet-fleet";;
+    split) echo "sparkduet-decode sparkduet-prefill";;
+  esac
+}
+
+# "<status> exit=<code> oom=<bool>" for one rank, or "" when the container does
+# not exist or the worker is unreachable (an ssh flap must not fail the wait).
+rank_state() { # node(head|worker) container
+  local fmt='{{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}'
+  if [[ "$1" == head ]]; then
+    docker inspect -f "$fmt" "$2" 2>/dev/null || true
+  else
+    ssh_worker "docker inspect -f '$fmt' '$2'" 2>/dev/null || true
+  fi
+}
+
+rank_logs() { # node(head|worker) container
+  if [[ "$1" == head ]]; then
+    docker logs --tail 40 "$2" 2>&1 | tail -40 >&2 || true
+  else
+    ssh_worker "docker logs --tail 40 '$2' 2>&1 | tail -40" >&2 || true
+  fi
+}
+
+wait_ready() { # lane port [timeout-steps]
+  local lane="$1" port="$2" n=0 max="${3:-240}" head_c worker_c node c state
+  read -r head_c worker_c <<<"$(lane_containers "$lane")"
   echo "waiting for :$port (multi-node load can take 10–20 min on first boot)"
   until curl -fsS "http://127.0.0.1:${port}/v1/models" >/dev/null 2>&1; do
-    looping=$(docker ps --filter "name=sparkduet-" --format '{{.Names}} {{.Status}}' | grep Restarting || true)
-    if [[ -n "$looping" ]]; then
-      echo "lane is restart-looping:" >&2
-      echo "$looping" >&2
-      docker logs --tail 30 sparkduet-next-head 2>&1 | tail -20 >&2 || true
-      docker logs --tail 20 sparkduet-glm-head 2>&1 | tail -10 >&2 || true
-      die "lane crash-looped while waiting for :$port"
-    fi
+    # The coupled lanes run restart: "no" (a lone rank must never re-read the
+    # checkpoint), so a rank that dies during boot sits Exited: `docker ps`
+    # never lists it and nothing restarts it. A Restarting grep cannot see
+    # that, and the wait used to run out the whole timeout on a lane that had
+    # already failed. Inspect both ranks by name and fail on the first dead
+    # one, with its last log lines. Lane F still self-restarts, so a
+    # restarting replica is caught the same way.
+    for node in head worker; do
+      if [[ "$node" == head ]]; then c="$head_c"; else c="$worker_c"; fi
+      state="$(rank_state "$node" "$c")"
+      case "${state%% *}" in
+        exited|dead|restarting)
+          echo "$node rank $c is $state while :$port is still down; last log lines:" >&2
+          rank_logs "$node" "$c"
+          die "lane $lane lost its $node rank while waiting for :$port";;
+      esac
+    done
     n=$((n+1)); [[ $n -gt $max ]] && die "timeout waiting for :$port"; sleep 15
   done
   curl -fsS "http://127.0.0.1:${port}/v1/models" && echo
@@ -337,7 +378,7 @@ stop_all() {
 cmd="${1:-}"; arg="${2:-depth}"
 case "$cmd" in
   start)  load_env; validate_config; doctor; capture_running_state
-          "start_$arg"; port="$(lane_port "$arg")"; wait_ready "$port"
+          "start_$arg"; port="$(lane_port "$arg")"; wait_ready "$arg" "$port"
           [[ "${ROUTER_ENABLE:-0}" == 1 ]] && start_router
           if [[ "$arg" == depth ]]; then
             D_PORT="$D_PORT" DS_SERVED_NAME="$DS_SERVED_NAME" D_MAX_NUM_SEQS="$D_MAX_NUM_SEQS" \
