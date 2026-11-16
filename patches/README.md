@@ -73,6 +73,7 @@ failure.
 | `glm-exl3-sm121/patch_scheduler_decode_floor.py` | Mixed prefill stealing a running decode step | House EXL3 overlay |
 | `glm-exl3-sm121/patch_suppress_stops_in_reasoning.py` | Client stop strings firing inside `<think>` | House EXL3 overlay |
 | `glm-exl3-sm121/patch_clamp_max_tokens.py` | OpenCode `max_tokens=9999999` 400s against `max_model_len` | House |
+| `glm-exl3-sm121/patch_adaptive_verify_k.py` | Optional speculative verify-length trim (`GLM53_ADAPTIVE_K=ema`). Default off. | House |
 
 Weights are ShapleyMcg License v1.0. Attribution is required; the notice
 is in `glm-exl3-sm121/README.md`.

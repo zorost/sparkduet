@@ -25,7 +25,7 @@ for p in patch_glm_video_placeholders patch_glm5_drafter_group; do
 done
 
 for p in patch_suppress_stops_in_reasoning patch_scheduler_decode_floor \
-         patch_hybrid_prefix_hit patch_clamp_max_tokens; do
+         patch_adaptive_verify_k patch_hybrid_prefix_hit patch_clamp_max_tokens; do
   if [ ! -f "$MOUNT/$p.py" ]; then
     echo "[glm-exl3-entry] FATAL $MOUNT/$p.py missing; refusing to serve" >&2
     exit 1

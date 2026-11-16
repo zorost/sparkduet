@@ -75,6 +75,18 @@ x-depth-env: &depth-env
   TORCH_NCCL_DUMP_ON_TIMEOUT: "1"
   TORCH_NCCL_DEBUG_INFO_TEMP_FILE: /root/.cache/vllm/nccl-flight/trace_rank_
   TORCH_FR_DUMP_TEMP_FILE: /root/.cache/vllm/nccl-flight/trace_rank_
+  # issue #26/#36: sparsify SWA prefix checkpoints so MLA prefix blocks survive; warm multi-turn hits
+  VLLM_PREFIX_CACHE_RETENTION_INTERVAL: "4096"
+  # issue #27: Anemll 0.1.1 ignores max_num_partial_prefills; hotfix reads this cap
+  DSPARK_MAX_INFLIGHT_PREFILLS: "1"
+  # issue #43: per-step scheduler diag off (zero overhead); set 1 to debug decode starvation
+  DSPARK_ISSUE43_SCHED_DIAG: "0"
+  # issue #65/#87: mid-serve JIT can exceed the 300 s RPC default and kill EngineCore
+  VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS: "1800"
+  # Indexer logits workspace
+  VLLM_SPARSE_INDEXER_MAX_LOGITS_MB: "256"
+  # C128A prefill conversion reuse. Opt-in hotfix for the pinned Anemll 0.1.1 image.
+  DSPARK_ENABLE_C128A_PREFILL_CACHE: "${DSPARK_ENABLE_C128A_PREFILL_CACHE:-1}"
 
 services:
   depth-head:

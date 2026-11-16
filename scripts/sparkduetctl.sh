@@ -75,19 +75,26 @@ doctor() {
   for i in 1 2 3; do ssh_worker true 2>/dev/null || fails=$((fails+1)); done
   [[ $fails -eq 0 ]] || echo "WARN: ssh to worker failed $fails/3 probes, fix the management path first"
   [[ $fails -lt 3 ]] || die "worker unreachable at ${WORKER_HOST}"
-  # image presence + digest equality across nodes
-  local lh lw
-  lh=$(docker image inspect "$VLLM_IMAGE" --format '{{.Id}}' 2>/dev/null || true)
-  lw=$(ssh_worker "docker image inspect '$VLLM_IMAGE' --format '{{.Id}}'" 2>/dev/null || true)
-  [[ -n "$lh" ]] || die "head missing image $VLLM_IMAGE (docker pull it)"
-  [[ -n "$lw" ]] || die "worker missing image $VLLM_IMAGE (docker pull it there)"
+  # image presence + digest equality across nodes.
+  # Restricted v4.1 overlay replaces the public 0731 Anemll image and DS_MODEL.
+  local lh lw depth_img depth_model
+  if [[ -f "$ROOT/local/restricted/lane-depth.compose.yml" ]]; then
+    depth_img="${D_V41_IMAGE:-$VLLM_IMAGE}"
+    depth_model="${D_V41_MODEL:-$DS_MODEL}"
+  else
+    depth_img="$VLLM_IMAGE"
+    depth_model="$DS_MODEL"
+  fi
+  lh=$(docker image inspect "$depth_img" --format '{{.Id}}' 2>/dev/null || true)
+  lw=$(ssh_worker "docker image inspect '$depth_img' --format '{{.Id}}'" 2>/dev/null || true)
+  [[ -n "$lh" ]] || die "head missing image $depth_img (docker pull it)"
+  [[ -n "$lw" ]] || die "worker missing image $depth_img (docker pull it there)"
   [[ "$lh" == "$lw" ]] || die "image digest mismatch head=$lh worker=$lw"
   echo "image digest identical on both nodes: ${lh:0:19}…"
-  # weights present where DS_MODEL points (local-path mode)
-  if [[ "${DS_MODEL:0:1}" == "/" ]]; then
-    [[ -f "$DS_MODEL/config.json" ]] || die "head missing weights at $DS_MODEL"
-    ssh_worker "test -f '$DS_MODEL/config.json'" || die "worker missing weights at $DS_MODEL (run prepare-models.sh --sync-worker)"
-    echo "weights present on both nodes: $DS_MODEL"
+  if [[ "${depth_model:0:1}" == "/" ]]; then
+    [[ -f "$depth_model/config.json" ]] || die "head missing weights at $depth_model"
+    ssh_worker "test -f '$depth_model/config.json'" || die "worker missing weights at $depth_model (run prepare-models.sh --sync-worker)"
+    echo "weights present on both nodes: $depth_model"
   fi
   if [[ "${N_MODEL:0:1}" == "/" ]]; then
     if [[ -f "$N_MODEL/config.json" ]]; then

@@ -14,6 +14,7 @@ and applies them before `vllm serve`. A missing file is a hard failure.
 | `patch_scheduler_decode_floor.py` | mixed prefill stealing a running decode step | often no |
 | `patch_suppress_stops_in_reasoning.py` | client stop strings firing inside `<think>` | often no |
 | `patch_clamp_max_tokens.py` | OpenCode `max_tokens=9999999` 400s against `max_model_len` | no |
+| `patch_adaptive_verify_k.py` | Optional verify-length trim (`GLM53_ADAPTIVE_K=ema`). Default off. Public MTP k=2 is unchanged. | no |
 
 `patch_hybrid_prefix_hit` is the correctness fix: the lane runs
 `--enable-prefix-caching`. The other patches the image already applies
