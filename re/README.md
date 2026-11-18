@@ -75,9 +75,57 @@ lab, and this document does not pretend it is.
 The check below tells you which of these are missing. If Node.js is missing
 or too old, installing it is an operator decision outside this desk.
 
+## Make it available [unverified on chassis]
+
+The product home is `re/` in this repo. On Spark 1 the desk lives in a side
+directory, `/home/dspark1/re-desk`, owned by `dspark1`, laid out as
+`re-desk/re/...` so every `re/re.sh` command below works from there. It is
+never placed in `/srv/ai/sparkduet`, the deployed serving tree.
+
+Two scripts do it, in this order:
+
+1. **Push from the Mac**, from this repo checkout:
+   `re/push-from-mac.sh`. It ships the committed `re/` tree over
+   `ssh dspark1` with rsync into `/home/dspark1/re-desk/re/` only, leaves
+   the box's `re/projects/` alone, then runs step 2 for you.
+2. **Deploy on Spark 1**: `re/deploy-spark1.sh` from `/home/dspark1/re-desk`.
+   It refuses any host that is not aarch64. It runs `re/re.sh check`,
+   `re/re.sh install --apply` (skipped when the pin is already installed),
+   `re/re.sh check` again, then `rea setup --client opencode --dry-run` and
+   `rea setup --client hermes --dry-run`. Nothing in an agent config changes.
+3. **Check** the output: both `check` runs end in `core requirements
+   present`, the `rea` row says `matches pin`, and each plan names one config
+   file and one skill folder.
+4. **Register**: `re/push-from-mac.sh --apply-agents`, or
+   `re/deploy-spark1.sh --apply-agents` on the box. It takes timestamped
+   backups (`*.re-desk.<UTC time>.bak`) of
+   `~/.config/opencode/opencode.json` and `~/.hermes/config.yaml`, runs the
+   official `rea setup` for both clients, then shapes only the `rea` rows:
+   OpenCode gets `type local`, a list `command`, `enabled true`,
+   `timeout 15000`; both get `REA_MCP_OUTPUT_SCHEMA_PROFILE=compact`.
+   Skills land where setup puts them: `~/.agents/skills/reverse-engineer-anything`
+   for OpenCode and `~/.hermes/skills/reverse-engineer-anything` for Hermes.
+5. **Restart OpenCode only**: the script prints the command, or pass
+   `--restart-opencode`. It restarts `zorost-opencode.service` only after the
+   config parses and holds a valid `mcp.rea` row.
+
+Hermes registration does not start the Hermes messaging gateway, and the
+script never starts, stops or restarts any unit whose name contains
+`gateway`. It does not restart Hermes or its dashboard. A new `hermes` CLI
+session picks up `mcp_servers.rea`; restart the dashboard only if it still
+does not show `rea`. cursor-agent on the Sparks stays unregistered.
+
+The resident lane serves every OpenCode and Hermes turn, so the tool list is
+trimmed with `REA_MCP_OUTPUT_SCHEMA_PROFILE=compact`. If a normal coding
+session still feels heavy, the next knob is `REA_MCP_TOOL_FAMILIES`, set with
+`rea setup --client <client> --tool-families <ids>`. The installed 6.9.0
+package's README and skill do not list the family ids, so this desk names
+none; REA names the valid ids when it rejects a value. Restart the client
+after changing it.
+
 ## Step 1. Check the host [unverified on chassis]
 
-From the repo checkout on Spark 1:
+From `/home/dspark1/re-desk` on Spark 1 (or any checkout of this repo):
 
 ```bash
 re/re.sh check
@@ -214,16 +262,16 @@ Preview a registration before applying it. The dry run changes nothing:
 
 | Agent | Where | Guidance |
 | --- | --- | --- |
-| OpenCode | Spark 1 | The house choice. It already talks to the local OpenAI port, so tool results stay on the pair. Setup adds an `mcp.rea` entry to the OpenCode config and keeps a backup. Review the dry run, then run the same command without `--dry-run`, then restart OpenCode. [unverified on chassis] |
-| Hermes | Spark 1 | Supported by upstream (`--client hermes`, writes `mcp_servers.rea` in `~/.hermes/config.yaml`). It only takes effect the next time Hermes is started. This desk never starts or restarts the Hermes gateway. Leave it unregistered unless you want it. [unverified on chassis] |
+| OpenCode | Spark 1 | The house choice. It already talks to the local OpenAI port, so tool results stay on the pair. Registered by `re/deploy-spark1.sh --apply-agents` (see "Make it available"), then restart OpenCode. [unverified on chassis] |
+| Hermes | Spark 1 | Registered by the same script (`mcp_servers.rea` in `~/.hermes/config.yaml`) for the Hermes CLI and dashboard. This desk never starts, stops or restarts the Hermes gateway. [unverified on chassis] |
 | Cursor | Operator Mac | `npx rea-agents@6.9.0 setup --client cursor` on the Mac writes `~/.cursor/mcp.json`. That REA runs on the Mac and sees the Mac's files, not the Sparks'. Tool results go to whichever model Cursor is using. |
 | cursor-agent | Sparks | Do not register REA there. It uses Cursor cloud models only, so tool results about local files would leave the pair. |
 
 Two caveats. REA advertises a large tool catalog, and whether the resident
-lane's model handles it well is untested here. Upstream offers
-`REA_MCP_TOOL_FAMILIES` and `REA_MCP_OUTPUT_SCHEMA_PROFILE` to shrink it
-(`docs/reference/mcp-contracts.md`). The CLI path in steps 1 to 4 needs no
-agent and no model at all, so start there.
+lane's model handles it well is untested here. The registration sets
+`REA_MCP_OUTPUT_SCHEMA_PROFILE=compact`; `REA_MCP_TOOL_FAMILIES` is the next
+knob (upstream `docs/reference/mcp-contracts.md`). The CLI path in steps 1
+to 4 needs no agent and no model at all, so start there.
 
 ## Update
 
@@ -246,8 +294,11 @@ latest release and leaves the pin file stale. Prefer the steps above.
    `~/.local/share/sparkduet-re/bin/rea uninstall`. Add `--purge-data` to
    also remove REA's own cache and state. It leaves other MCP servers,
    Node.js and evidence files alone.
+   Restart OpenCode afterwards. The `*.re-desk.*.bak` files next to each
+   config are the state before each registration run.
 2. Delete the install: `rm -rf ~/.local/share/sparkduet-re`.
-3. Project folders under `re/projects/` are yours. Keep or delete them.
+3. Project folders under `re/projects/` are yours. Keep or delete them. On
+   Spark 1 the whole desk is `/home/dspark1/re-desk`.
 
 No service has to be stopped, because none was started.
 
@@ -274,6 +325,8 @@ part of this program.
 | Path | What it is |
 | --- | --- |
 | `re/re.sh` | The one entry point: `check`, `install`, `new`, `list`, `model`, `gpu` |
+| `re/push-from-mac.sh` | Run on the operator Mac: ship `re/` to `/home/dspark1/re-desk/re/` and deploy |
+| `re/deploy-spark1.sh` | Run on Spark 1: check, install, check, register OpenCode and Hermes |
 | `re/REA_VERSION` | The pinned `rea-agents` version |
 | `re/template/` | The three scaffold files copied into each project |
 | `re/projects/` | One folder per investigation |

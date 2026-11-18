@@ -445,7 +445,10 @@ sparkduet/
 
 Separate from the lanes above. `re/` holds a static inspection desk built on
 the REA CLI: model file headers, GPU code objects and binaries, CPU only,
-with the resident lane left loaded. It has not been run on the chassis yet.
+with the resident lane left loaded. Its home is `re/` in this repo. On Spark 1
+it is deployed as a side directory, `/home/dspark1/re-desk`, never inside the
+serving tree, by `re/push-from-mac.sh` and `re/deploy-spark1.sh`, which also
+register it with OpenCode and Hermes. It has not been run on the chassis yet.
 Start at [`re/README.md`](re/README.md).
 
 ## What this is not
