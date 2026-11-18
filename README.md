@@ -441,6 +441,13 @@ sparkduet/
 └── results/                   # dated benchmark artifacts (JSON + markdown)
 ```
 
+## Side desk: reverse-engineering workbench
+
+Separate from the lanes above. `re/` holds a static inspection desk built on
+the REA CLI: model file headers, GPU code objects and binaries, CPU only,
+with the resident lane left loaded. It has not been run on the chassis yet.
+Start at [`re/README.md`](re/README.md).
+
 ## What this is not
 
 - Not an inference engine. vLLM (via a pinned, community-maintained image for

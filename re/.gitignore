@@ -1,0 +1,86 @@
+# Reverse-engineering workbench: keep the scaffold and the docs, never the payloads.
+
+# One folder per investigation. Only the three scaffold files are tracked.
+projects/*/*
+!projects/*/QUESTION.md
+!projects/*/EVIDENCE.md
+!projects/*/STATUS.md
+# A project named local-<something> is never tracked at all.
+projects/local-*/
+
+# Belt and braces: payload types are ignored anywhere under re/.
+# REA output
+evidence/
+*.evidence.json
+*.summary.json
+# Targets, binaries, code objects
+*.so
+*.so.*
+*.a
+*.o
+*.ko
+*.elf
+*.exe
+*.dll
+*.dylib
+*.sys
+*.msi
+*.node
+*.wasm
+*.pyc
+*.cubin
+*.fatbin
+*.ptx
+*.gguf
+*.safetensors
+*.bin
+*.img
+*.iso
+# Packaged and extracted applications
+*.apk
+*.aab
+*.ipa
+*.dex
+*.jar
+*.asar
+*.zip
+*.tar
+*.tgz
+*.gz
+*.xz
+*.zst
+*.7z
+extracted/
+unpacked/
+target/
+targets/
+# Captures and dumps
+*.har
+*.saz
+*.pcap
+*.pcapng
+*.cap
+*.core
+core.*
+*.dmp
+*.mdmp
+*.hprof
+dumps/
+captures/
+# Analysis databases
+*.gzf
+*.rep/
+*.i64
+*.idb
+*.hop
+*.sqlite
+*.db
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.token
+secrets.*
