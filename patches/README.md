@@ -64,8 +64,8 @@ pools, and aborts leftover token-id-0 loops. See that directory's README.
 ## Lane G on EXL3 (G_ENGINE=exl3)
 
 Applied by `glm-exl3-entry.sh` before `vllm serve`. The image predates these
-files, so they are mounted over `/opt/glm53/`. A missing file is a hard
-failure.
+files, so they are mounted read-only at `/sparkduet-patches/glm-exl3-sm121`
+and applied from there. A missing file is a hard failure.
 
 | File | What it fixes | Origin |
 |---|---|---|

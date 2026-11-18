@@ -44,6 +44,9 @@ jobs:
       - name: lane-glm wiring tests
         run: python3 scripts/test_lane_glm.py
 
+      - name: harness template tests
+        run: python3 scripts/test_harness_config.py
+
       - name: diagrams are valid XML
         run: |
           python3 - <<'PY'

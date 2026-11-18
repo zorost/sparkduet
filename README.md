@@ -292,10 +292,16 @@ branch.
 Everything speaks the OpenAI API on one port. Working configs for the four
 harnesses we run daily are in `docs/RUNBOOK.md`:
 
-- **OpenCode**, `provider` block with the endpoint and both model IDs
+- **OpenCode**, `provider` block with the endpoint and both model IDs. The
+  house agent limits and loop rules for the resident are in
+  `configs/opencode/`
 - **Cursor**, OpenAI-compatible base URL override
 - **DeepSeek CLI**, `DEEPSEEK_BASE_URL` + served model name
-- **Hermes**, endpoint + model in `hermes.toml`
+- **Hermes**, endpoint + model in `~/.hermes/config.yaml`
+
+How OpenCode, Hermes and Open WebUI should share one resident (one model at
+a time, no shell calls to the engine, step and effort limits):
+`docs/HARNESS.md`.
 
 The router exposes lanes as model suffixes (`model@fleet`) or headers
 (`X-SparkDuet-Lane`), so a harness can pin a lane per request without any
@@ -411,7 +417,8 @@ sparkduet/
 │   ├── lane-glm.compose.yml   # TP=2 GLM NVFP4 (G_ENGINE=vllm)
 │   ├── lane-glm-exl3.compose.yml     # same hop, EXL3 (G_ENGINE=exl3)
 │   ├── lane-fleet.compose.yml # DP=2 replicas (one-node-fit models)
-│   └── lane-pd.compose.yml    # prefill/decode split (experimental)
+│   ├── lane-pd.compose.yml    # prefill/decode split (experimental)
+│   └── opencode/              # sanitized OpenCode template, rules, Magic Context
 ├── scripts/
 │   ├── sparkduetctl.sh        # doctor / start / stop / switch / status / revert
 │   ├── nccl-check.sh          # fabric go/no-go gate (link, RDMA, all-reduce)
@@ -429,6 +436,7 @@ sparkduet/
 ├── docs/
 │   ├── ARCHITECTURE.md        # the design and the arithmetic behind it
 │   ├── RUNBOOK.md             # day-2 ops + harness configs
+│   ├── HARNESS.md             # how OpenCode, Hermes, WebUI share one resident
 │   ├── BENCHMARK-PROTOCOL.md  # binding measurement rules
 │   ├── COMPARISON.md          # vs other approaches, regime by regime
 │   ├── MODELS.md              # choosing checkpoints for this hardware

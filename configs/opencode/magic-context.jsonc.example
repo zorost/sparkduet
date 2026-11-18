@@ -1,0 +1,13 @@
+{
+  // Absolute trigger, in tokens. For a model the map covers, this wins over
+  // the percentage key below. House value:
+  //   min(36000, max(12000, served * 55 // 100))
+  // which is 36000 for any served window of 65455 tokens or more.
+  // Do not raise the 36000 cap.
+  "execute_threshold_tokens": { "default": 36000 },
+
+  // Fallback only. Magic Context uses it when no context limit resolves for
+  // the session model. It must never be the only threshold: 35 percent of an
+  // 850000 window is 297500 tokens.
+  "execute_threshold_percentage": 35
+}

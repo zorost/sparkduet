@@ -22,6 +22,10 @@
 #     after reboot with ComfyUI, the desktop session, llamaswap, Caddy
 #     and a dashboard.
 #
+# Thinking is off at the engine door (--default-chat-template-kwargs). Agent
+# clients do not lean on that default: they send a reasoning effort per
+# request (OpenCode Build low, Plan and Hard high). See docs/HARNESS.md.
+#
 # Do not add --moe-backend marlin. EXL3 weights use the fused
 # exllamav3_ext.exl3_moe path and marlin is wrong for this checkpoint.
 # Graphs stay on (no --enforce-eager); MTP capture sizes must include 3.

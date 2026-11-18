@@ -1,0 +1,43 @@
+# House rules for agents on the resident lane
+
+One model serves this session and every other client on the pair. Each step
+is one request to it, and the whole transcript is sent again on every step.
+
+## Never talk to the model stack from the shell
+
+- Do not call ports 30000, 20127 or 20128 on 127.0.0.1 or localhost with
+  curl, wget, nc, python or anything else. They are the engine, the clamp and
+  the router that are answering you right now. A shell call to them queues
+  behind your own turn and tells you nothing.
+- Do not test, benchmark, warm up or health-check the model.
+- Do not start, stop or restart a lane, a container or a gateway unless the
+  user asked for exactly that.
+
+## Never sleep-poll
+
+- Do not run `sleep`, alone, in a loop, or wrapped (`timeout 30 sleep 5`,
+  `bash -c "sleep 5"`, `python -c "time.sleep(5)"`, `read -t 5`).
+- To wait for a command, run it in the foreground and set the bash tool's
+  `timeout` to cover it. The call returns when the command exits.
+- To wait for a state, use one blocking command with its own bound:
+  `docker wait NAME`, `timeout 600 tail --pid=PID -f /dev/null`,
+  `curl --retry 10 --retry-connrefused --max-time 60 URL` (never the three
+  ports above).
+- If a job needs longer than one call can cover, start it detached with its
+  output in a log file, tell the user what is running and how to check it,
+  and stop. Do not come back to poll it.
+
+## Keep each step small
+
+- Search before reading. Read ranges, not whole files.
+- Cap command output: `| tail -n 40`, quiet flags, a grep for the line you
+  need.
+- Put independent read-only checks in one command or one message.
+- Do not re-run a command that already succeeded. Do not re-read a file you
+  just wrote.
+
+## Step budget
+
+- Build has 60 steps per user message. Plan the change, make it, verify once.
+- When the limit arrives, say what is done and what is left. The user
+  continues with one message.

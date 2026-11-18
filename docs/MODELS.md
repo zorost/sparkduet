@@ -189,6 +189,17 @@ Same hop and container names as the NVFP4 lane. Never beside it: one
   `G_EXL3_GPU_MEM_UTIL=0.80` is the house ceiling: 0.82 misses by ~0.7 GiB
   on Spark 2 after reboot with Comfy and the desktop session.
 - Parsers: `--tool-call-parser glm47`, `--reasoning-parser glm45`.
+- Field check, 2026-11-18: public GB10 recipes for this checkpoint family
+  were re-read. Where they run native MTP they agree with this lane: `k=2`,
+  capture set `1 2 3 4 6 8 12`, packed fp8 KV, no marlin, the same parsers.
+  Every faster decode row in them depends on the drafter this repo will not
+  ship (above). Larger `--max-num-batched-tokens` values are reported both
+  as safe and as an indexer crash on long prefill, none of them under MTP
+  [M-else]; the lane comment records the indexer OOM at 8192, so 1024 stays.
+  No knob changed.
+- Thinking is off at the engine door. Agent clients send their own effort
+  per request. How OpenCode, Hermes and Open WebUI should use this resident:
+  `docs/HARNESS.md`.
 - Stage: `./scripts/prepare-models.sh --model glm-exl3`
 - Serve: set `G_ENGINE=exl3`, then `./scripts/sparkduetctl.sh switch glm`
 - Back: `./scripts/sparkduetctl.sh switch depth`

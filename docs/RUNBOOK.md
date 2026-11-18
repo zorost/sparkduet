@@ -92,6 +92,11 @@ integration. `~/.config/opencode/opencode.json` (mode 600 if you add keys):
 `opencode` for the interactive TUI; `opencode run "..."` for one-shot scripted
 use (right form inside tmux and CI).
 
+That block is the minimum to connect. The agent limits the Lab pair runs on
+its resident lane (60 Build steps, low Build effort, no `sleep`, no shell
+calls to the engine) are in `configs/opencode/`, with the reasons in
+`docs/HARNESS.md`.
+
 ### Cursor (Mac/desktop IDE)
 
 Settings → Models → OpenAI API: set the override base URL to

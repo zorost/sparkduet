@@ -4,9 +4,12 @@ Runtime patches for the EXL3/TR3 4bpw serve of GLM-5.3-Flash on two DGX Sparks.
 
 ## Why these files are here
 
-The EXL3 vLLM image you pin as `G_EXL3_IMAGE` may predate four house
-patches. `glm-exl3-entry.sh` bind-mounts this directory over `/opt/glm53/`
-and applies them before `vllm serve`. A missing file is a hard failure.
+The EXL3 vLLM image you pin as `G_EXL3_IMAGE` may predate the five house
+patches below. The lane compose mounts `patches/` read-only at
+`/sparkduet-patches`, and `glm-exl3-entry.sh` applies the files from
+`/sparkduet-patches/glm-exl3-sm121` before `vllm serve`. `/opt/glm53/` is the
+image's own baked directory and is not replaced. A missing file is a hard
+failure.
 
 | File | What it fixes | In a stock overlay? |
 |---|---|---|

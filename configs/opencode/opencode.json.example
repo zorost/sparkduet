@@ -1,0 +1,50 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["@cortexkit/opencode-magic-context"],
+  "provider": {
+    "spark": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Spark pair (resident lane)",
+      "options": {
+        "baseURL": "http://127.0.0.1:18787/v1",
+        "apiKey": "{env:SPARK_GATEWAY_KEY}"
+      },
+      "models": {
+        "spark1/brandonmusic/GLM-5.3-Flash-EXL3-TR3-4bpw": {
+          "name": "GLM-5.3-Flash EXL3 TR3 4bpw (resident)",
+          "limit": { "context": 850000, "output": 16384 }
+        }
+      }
+    }
+  },
+  "model": "spark/spark1/brandonmusic/GLM-5.3-Flash-EXL3-TR3-4bpw",
+  "compaction": { "auto": false, "prune": false },
+  "agent": {
+    "build": {
+      "steps": 60,
+      "reasoningEffort": "low",
+      "permission": {
+        "bash": {
+          "*": "allow",
+          "sleep *": "deny",
+          "*:30000*": "deny",
+          "*:20127*": "deny",
+          "*:20128*": "deny"
+        }
+      },
+      "tools": {
+        "context7_*": true,
+        "playwright-app_*": true,
+        "rea_*": false
+      }
+    },
+    "plan": {
+      "reasoningEffort": "high"
+    },
+    "hard": {
+      "mode": "primary",
+      "description": "Deep work on the same resident model at high reasoning effort.",
+      "reasoningEffort": "high"
+    }
+  }
+}
