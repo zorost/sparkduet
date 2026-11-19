@@ -1,0 +1,38 @@
+# spark-attic overlay for configs/lane-next.compose.yml.
+# sparkduetctl.sh merges this file only when SPARK_ATTIC=1. With SPARK_ATTIC
+# unset or 0 it is never read. It adds the atticd socket, the key (read-only),
+# the installed client package and four env vars to the services the lane file
+# already defines. It defines no image and no new service. Host paths are
+# absolute so they resolve the same from configs/ and local/restricted/.
+# create_host_path is false so a missing install fails the start instead of
+# docker creating an empty directory in its place. See docs/SPARK-ATTIC.md.
+
+services:
+  next-head:
+    volumes: &attic-volumes
+      - type: bind
+        source: ${SPARK_ATTIC_RUN_DIR:-/run/spark-attic}
+        target: /run/spark-attic
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${SPARK_ATTIC_KEY_PATH:-/etc/spark-attic/key}
+        target: /etc/spark-attic/key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${SPARK_ATTIC_PY_DIR:-/usr/local/share/spark-attic/python}
+        target: /opt/spark-attic/python
+        read_only: true
+        bind:
+          create_host_path: false
+    environment: &attic-env
+      PYTHONPATH: /opt/spark-attic/python
+      SPARK_ATTIC_SOCK: /run/spark-attic/attic.sock
+      SPARK_ATTIC_KEY_FILE: /etc/spark-attic/key
+      SPARK_ATTIC_PLACE: ${SPARK_ATTIC_PLACE:-kv}
+
+  next-worker:
+    volumes: *attic-volumes
+    environment: *attic-env

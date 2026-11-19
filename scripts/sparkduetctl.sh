@@ -43,6 +43,9 @@ validate_config() {
     [[ -n "$v" ]] && printf -v "$knob" '%s' "$v"
   done
   case "${LANE_DEFAULT:-depth}" in depth|fleet|next|glm|split) ;; *) die "LANE_DEFAULT invalid";; esac
+  case "${SPARK_ATTIC:-0}" in 0|1) ;; *) die "SPARK_ATTIC must be 0 or 1 (got '${SPARK_ATTIC}')";; esac
+  case "${SPARK_ATTIC_PLACE:-kv}" in kv|off|weights|weights,kv|kv,weights) ;;
+    *) die "SPARK_ATTIC_PLACE must be kv, weights, weights,kv or off";; esac
 }
 
 ssh_worker() { ssh -o BatchMode=yes -o ConnectTimeout=8 "${WORKER_USER}@${WORKER_HOST}" "$@"; }
@@ -57,11 +60,56 @@ compose_rel() {
     printf '%s' "configs/$name"
   fi
 }
-compose_head()   { docker compose --env-file "$ENV_FILE" -f "$ROOT/$(compose_rel "$1")" "${@:2}"; }
+# ---- spark-attic (default off) -----------------------------------------------
+# SPARK_ATTIC=1 merges configs/spark-attic/<lane>.attic.yml on top of the lane
+# file. Unset or 0 leaves every compose command byte-for-byte as before. The
+# flag is read from the caller's shell; do not set it in sparkduet.env, which
+# is sourced after it and would pin it. See docs/SPARK-ATTIC.md.
+attic_on() { [[ "${SPARK_ATTIC:-0}" == 1 ]]; }
+attic_overlay_rel() { printf 'configs/spark-attic/%s.attic.yml' "${1%.compose.yml}"; }
+# Prints the overlay path for a lane file, or nothing. Dies if the flag is on and the
+# lane has no overlay (SGLang lanes), except for `down`.
+attic_overlay_for() { # lane-file compose-subcommand
+  attic_on || return 0
+  local ov; ov="$(attic_overlay_rel "$1")"
+  if [[ -f "$ROOT/$ov" ]]; then printf '%s' "$ov"; return 0; fi
+  [[ "${2:-}" == down ]] && return 0
+  die "SPARK_ATTIC=1 but $1 has no spark-attic overlay ($ov). Only vLLM lanes have one."
+}
+# Env prefixes do not cross SSH, so the worker compose gets them inline.
+attic_worker_env() {
+  local v out="SPARK_ATTIC_PLACE='${SPARK_ATTIC_PLACE:-kv}' "
+  for v in SPARK_ATTIC_RUN_DIR SPARK_ATTIC_KEY_PATH SPARK_ATTIC_PY_DIR; do
+    [[ -n "${!v:-}" ]] && out+="$v='${!v}' "
+  done
+  printf '%s' "$out"
+}
+# Read-only: the socket, the key path and the client package must exist on both
+# nodes. A one-node lender cannot grow a TP=2 KV pool. The key is never read.
+attic_check_nodes() {
+  local run="${SPARK_ATTIC_RUN_DIR:-/run/spark-attic}"
+  local key="${SPARK_ATTIC_KEY_PATH:-/etc/spark-attic/key}"
+  local py="${SPARK_ATTIC_PY_DIR:-/usr/local/share/spark-attic/python}"
+  local probe="test -S '$run/attic.sock' && test -d '$py/spark_attic' && { test -e '$key' || sudo -n test -e '$key'; }"
+  bash -c "$probe" || die "spark-attic: head lacks $run/attic.sock, $key or $py/spark_attic (run scripts/spark-attic-preflight.sh)"
+  ssh_worker "$probe" || die "spark-attic: worker lacks $run/attic.sock, $key or $py/spark_attic (run scripts/spark-attic-preflight.sh there)"
+  echo "spark-attic: socket, key and client present on both nodes; SPARK_ATTIC_PLACE=${SPARK_ATTIC_PLACE:-kv}"
+  echo "spark-attic: head status: $(cat "$run/status.json" 2>/dev/null || echo unavailable)"
+  echo "spark-attic: worker status: $(ssh_worker "cat '$run/status.json'" 2>/dev/null || echo unavailable)"
+}
+
+compose_head() {
+  local ov; ov="$(attic_overlay_for "$1" "${2:-}")" || exit 1
+  local -a attic=()
+  [[ -n "$ov" ]] && attic=(-f "$ROOT/$ov")
+  docker compose --env-file "$ENV_FILE" -f "$ROOT/$(compose_rel "$1")" ${attic[@]+"${attic[@]}"} "${@:2}"
+}
 compose_worker() {
-  local rel
+  local rel ov attic="" pre=""
   rel="$(compose_rel "$1")"
-  ssh_worker "cd '${SPARKDUET_DIR:-$ROOT}' && docker compose --env-file sparkduet.env -f '$rel' ${*:2}"
+  ov="$(attic_overlay_for "$1" "${2:-}")" || exit 1
+  [[ -n "$ov" ]] && { attic=" -f '$ov'"; pre="$(attic_worker_env)"; }
+  ssh_worker "cd '${SPARKDUET_DIR:-$ROOT}' && ${pre}docker compose --env-file sparkduet.env -f '$rel'${attic} ${*:2}"
 }
 
 doctor() {
@@ -278,8 +326,11 @@ start_fleet() {
   if [[ "${F_MODEL:-qwen}" != qwen ]]; then model="$F_MODEL"; name="${F_SERVED_NAME:-sparkduet-fleet-custom}"; fi
   # Env prefixes do not cross SSH: the worker compose must get the computed
   # values inline or it boots `vllm serve` with a blank model and crash-loops.
+  local ov attic="" pre=""
+  ov="$(attic_overlay_for lane-fleet.compose.yml up)" || exit 1
+  [[ -n "$ov" ]] && { attic=" -f '$ov'"; pre="$(attic_worker_env)"; }
   ssh_worker "cd '${SPARKDUET_DIR:-$ROOT}' && FLEET_MODEL_ID='$model' FLEET_SERVED_NAME='$name' FLEET_PORT='$F_PORT_B' \
-    docker compose --env-file sparkduet.env -f 'configs/lane-fleet.compose.yml' up -d fleet-replica"
+    ${pre}docker compose --env-file sparkduet.env -f 'configs/lane-fleet.compose.yml'${attic} up -d fleet-replica"
   FLEET_MODEL_ID="$model" FLEET_SERVED_NAME="$name" FLEET_PORT="$F_PORT_A" \
     compose_head   lane-fleet.compose.yml up -d fleet-replica
 }
@@ -337,6 +388,7 @@ stop_all() {
 cmd="${1:-}"; arg="${2:-depth}"
 case "$cmd" in
   start)  load_env; validate_config; doctor; capture_running_state
+          if attic_on; then attic_check_nodes; fi
           "start_$arg"; port="$(lane_port "$arg")"; wait_ready "$port"
           [[ "${ROUTER_ENABLE:-0}" == 1 ]] && start_router
           if [[ "$arg" == depth ]]; then
