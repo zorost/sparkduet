@@ -17,6 +17,11 @@ chassis step is **[unverified on chassis]** until someone runs it there.
 
 Only the engine is part of this repo. The other three are house services.
 
+spark-attic (lending the GB10 display carveout to the engine's KV pool) is
+off on the pair and is described in `docs/SPARK-ATTIC.md`. It does not change
+`max_model_len`, so it changes nothing in this page: keep reading the live
+window from `/v1/models`.
+
 ## Rules for every client
 
 1. **One model at a time.** Titles, summaries, subagents, the Magic Context

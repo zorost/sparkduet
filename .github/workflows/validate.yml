@@ -47,6 +47,9 @@ jobs:
       - name: harness template tests
         run: python3 scripts/test_harness_config.py
 
+      - name: spark-attic wiring tests
+        run: python3 scripts/test_spark_attic.py
+
       - name: diagrams are valid XML
         run: |
           python3 - <<'PY'
