@@ -48,8 +48,9 @@ What that means on the same two boxes, in the same day:
 - `switch fleet` for two **Qwen 27B** replicas, one per box.
 - `switch next` for **Qwen3.8-Flash-Next** NVFP4 (Lane N, TP=2) on
   [`lane-n-flash-next`](https://github.com/zorost/sparkduet/tree/lane-n-flash-next).
-- `switch glm` for **GLM-5.3-Flash** NVFP4 (Lane G, TP=2) on
-  [`lane-g-glm-flash`](https://github.com/zorost/sparkduet/tree/lane-g-glm-flash).
+- `switch glm` for **GLM-5.3-Flash** NVFP4 or EXL3 (Lane G, TP=2) on
+  [`lane-g-glm-flash`](https://github.com/zorost/sparkduet/tree/lane-g-glm-flash),
+  on vLLM or, opt-in, on TensorFold.
 - Keep the rest of the library (**GGUF**, merged fine-tunes) loading
   **on demand** without touching the resident.
 - **Fine-tune** up to ~70B with QLoRA on the node that is not serving.
@@ -140,8 +141,10 @@ path; stock 0.6.17 collapses completions to token 1023. `G_ENGINE=exl3`
 is brandonmusic EXL3/TR3 4bpw (~164 GiB, ShapleyMcg License v1.0) on the
 house EXL3 image. The Lab pair runs `G_ENGINE=exl3` for quality per byte
 (teacher-logit KLD 0.024555 nats vs NVFP4 0.060535). DFlash2 stays out:
-those weights are CC BY-NC-ND. Both engines speculate with MTP.
-`switch glm` / `switch depth`. Weights: `prepare-models.sh --model glm-flash`
+those weights are CC BY-NC-ND. `G_ENGINE=tensorfold` serves the same EXL3
+checkpoint on TensorFold's native server (Apache-2.0, built unmodified),
+opt-in until an A/B on the pair (`docs/MODELS.md`). Every engine speculates
+with the checkpoint's MTP. `switch glm` / `switch depth`. Weights: `prepare-models.sh --model glm-flash`
 or `--model glm-exl3`.
 
 **Lane F, Fleet (DP=2).** Two independent replicas of a model that fits one
@@ -416,6 +419,7 @@ sparkduet/
 │   ├── lane-next-sglang.compose.yml  # same hop, NEXTN (N_ENGINE=sglang)
 │   ├── lane-glm.compose.yml   # TP=2 GLM NVFP4 (G_ENGINE=vllm)
 │   ├── lane-glm-exl3.compose.yml     # same hop, EXL3 (G_ENGINE=exl3)
+│   ├── lane-glm-tensorfold.compose.yml  # same hop and weights on TensorFold (opt-in)
 │   ├── lane-fleet.compose.yml # DP=2 replicas (one-node-fit models)
 │   ├── lane-pd.compose.yml    # prefill/decode split (experimental)
 │   └── opencode/              # sanitized OpenCode template, rules, Magic Context

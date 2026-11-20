@@ -38,6 +38,7 @@ validate_config() {
               G_MTP_NUM_TOKENS \
               G_EXL3_MAX_MODEL_LEN G_EXL3_MAX_NUM_SEQS G_EXL3_MAX_NUM_BATCHED_TOKENS \
               G_EXL3_MTP_NUM_TOKENS \
+              G_TF_CONTEXT G_TF_PARALLEL G_TF_PROMPT_CACHE_GIB G_TF_MAX_TOKENS \
               LANE_MAX_INFLIGHT SPEC_WINDOW_S SPEC_MIN_DRAFT_TOKENS NCCL_IB_GID_INDEX; do
     v="$(validate_int "$knob" "${!knob:-}")" || exit 1
     [[ -n "$v" ]] && printf -v "$knob" '%s' "$v"
@@ -113,6 +114,8 @@ doctor() {
   local g_model g_image g_stage
   if [[ "${G_ENGINE:-vllm}" == exl3 ]]; then
     g_model="${G_EXL3_MODEL:-}"; g_image="${G_EXL3_IMAGE:-}"; g_stage="glm-exl3"
+  elif [[ "${G_ENGINE:-vllm}" == tensorfold ]]; then
+    g_model="${G_EXL3_MODEL:-}"; g_image="${G_TF_IMAGE:-}"; g_stage="glm-exl3"
   else
     g_model="${G_MODEL:-}"; g_image="${G_VLLM_IMAGE:-}"; g_stage="glm-flash"
   fi
@@ -243,22 +246,47 @@ start_next() { # worker rank first, then head. Same fabric as depth.
   sleep 5
   compose_head   "$nfile" up -d next-head
 }
+# Lane G on TensorFold: settings the compose file cannot check, the state
+# directory on both Sparks, and the end-token overlay both ranks mount over the
+# checkpoint's generation_config.json (scripts/glm_eos_overlay.py).
+prepare_glm_tensorfold() {
+  local state="${G_TF_STATE_DIR:-/srv/ai/cache/tensorfold}" eos="${G_TF_EXTRA_EOS-<|assistant|>}"
+  local wroot="${SPARKDUET_DIR:-$ROOT}"
+  case "${G_TF_KV:-}" in fp8|bf16) ;; *) die "G_TF_KV must be fp8 or bf16 (got '${G_TF_KV:-}')" ;; esac
+  case "${G_TF_CLEAR_THINKING:-1}" in 0|1) ;; *) die "G_TF_CLEAR_THINKING must be 0 or 1" ;; esac
+  [[ "${G_TF_MEMORY_RESERVE_GIB:-12}" =~ ^[0-9]+(\.[0-9]+)?$ ]] || die "G_TF_MEMORY_RESERVE_GIB must be a number of GiB"
+  (( ${G_TF_MAX_TOKENS:-16384} > 2048 )) || die "G_TF_MAX_TOKENS must stay above 2048"
+  [[ "$eos" != *"'"* ]] || die "G_TF_EXTRA_EOS must not contain a single quote"
+  mkdir -p "$state/home" || die "cannot create $state on the head"
+  ssh_worker "mkdir -p '$state/home'" || die "cannot create $state on the worker"
+  python3 "$ROOT/scripts/glm_eos_overlay.py" "$G_EXL3_MODEL" "$state/generation_config.json" "$eos" \
+    || die "end-token overlay failed on the head"
+  ssh_worker "python3 '$wroot/scripts/glm_eos_overlay.py' '$G_EXL3_MODEL' '$state/generation_config.json' '$eos'" \
+    || die "end-token overlay failed on the worker"
+  [[ "$(sha256sum < "$state/generation_config.json")" == "$(ssh_worker "sha256sum < '$state/generation_config.json'")" ]] \
+    || die "the two Sparks wrote different end-token overlays: check that both hold the same checkpoint"
+}
+
 start_glm() { # worker rank first, then head. Same fabric as depth.
-  # Both engines serve GLM-5.3-Flash on the same :30000 hop under the same
-  # container names, differing in quantization: NVFP4 weights on the house
-  # image, or EXL3/TR3 4bpw on the house EXL3 image. Both speculate with MTP.
-  # See the two lane files.
+  # Every engine serves GLM-5.3-Flash on the same :30000 hop under the same
+  # container names: NVFP4 weights on the house image, EXL3/TR3 4bpw on the
+  # house EXL3 vLLM image, or the same EXL3/TR3 weights on TensorFold's native
+  # server. All speculate with the checkpoint's MTP. See the three lane files.
   local gh gw gfile gimg gmodel
   case "${G_ENGINE:-vllm}" in
     vllm) gfile=lane-glm.compose.yml;      gimg="${G_VLLM_IMAGE}"; gmodel="${G_MODEL}" ;;
     exl3) gfile=lane-glm-exl3.compose.yml; gimg="${G_EXL3_IMAGE}"; gmodel="${G_EXL3_MODEL}" ;;
-    *) die "G_ENGINE must be vllm or exl3 (got '${G_ENGINE}')" ;;
+    tensorfold) gfile=lane-glm-tensorfold.compose.yml; gimg="${G_TF_IMAGE}"; gmodel="${G_EXL3_MODEL}" ;;
+    *) die "G_ENGINE must be vllm, exl3 or tensorfold (got '${G_ENGINE}')" ;;
   esac
   [[ -f "${gmodel}/config.json" ]] || die "GLM-5.3-Flash weights missing at $gmodel (prepare-models.sh --model glm-flash|glm-exl3)"
   gh=$(docker image inspect "$gimg" --format '{{.Id}}' 2>/dev/null || true)
   gw=$(ssh_worker "docker image inspect '$gimg' --format '{{.Id}}'" 2>/dev/null || true)
   [[ -n "$gh" ]] || die "head missing image $gimg (docker pull it)"
   [[ -n "$gw" ]] || die "worker missing image $gimg (docker pull it there)"
+  [[ "$gh" == "$gw" ]] || [[ "${G_ENGINE:-vllm}" != tensorfold ]] \
+    || die "head and worker hold different $gimg images (scripts/build-tensorfold-image.sh ships one)"
+  [[ "${G_ENGINE:-vllm}" != tensorfold ]] || prepare_glm_tensorfold
   # GB10 unified memory: a loaded library GGUF counts against the 0.82 check.
   # Unload first so Spark 2 can clear ~100 GiB. The library reloads on demand.
   ssh_worker "curl -fsS -X POST http://127.0.0.1:30003/api/models/unload >/dev/null 2>&1 || true"
@@ -328,7 +356,7 @@ stop_all() {
   # Both lane N engine files are torn down. They share service and container
   # names, so leaving the inactive one out would risk an orphaned rank holding
   # :30000 while the other engine boots.
-  for f in lane-depth lane-next lane-next-sglang lane-glm lane-glm-exl3 lane-fleet lane-pd; do
+  for f in lane-depth lane-next lane-next-sglang lane-glm lane-glm-exl3 lane-glm-tensorfold lane-fleet lane-pd; do
     compose_head "$f.compose.yml" down 2>/dev/null || true
     compose_worker "$f.compose.yml" down 2>/dev/null || true
   done
@@ -346,10 +374,13 @@ case "$cmd" in
             D_PORT="${N_PORT:-$D_PORT}" DS_SERVED_NAME="$N_SERVED_NAME" D_MAX_NUM_SEQS="$N_MAX_NUM_SEQS" \
               bash "$ROOT/scripts/warmup.sh"
           elif [[ "$arg" == glm ]]; then
-            # Unlike lane N, the two GLM engines serve different checkpoints, so
+            # Unlike lane N, the GLM engines serve different checkpoints, so
             # the warmup has to ask for the id the running engine advertises.
             if [[ "${G_ENGINE:-vllm}" == exl3 ]]; then
               D_PORT="${G_PORT:-$D_PORT}" DS_SERVED_NAME="$G_EXL3_SERVED_NAME" D_MAX_NUM_SEQS="$G_EXL3_MAX_NUM_SEQS" \
+                bash "$ROOT/scripts/warmup.sh"
+            elif [[ "${G_ENGINE:-vllm}" == tensorfold ]]; then
+              D_PORT="${G_PORT:-$D_PORT}" DS_SERVED_NAME="$G_EXL3_SERVED_NAME" D_MAX_NUM_SEQS="$G_TF_PARALLEL" \
                 bash "$ROOT/scripts/warmup.sh"
             else
               D_PORT="${G_PORT:-$D_PORT}" DS_SERVED_NAME="$G_SERVED_NAME" D_MAX_NUM_SEQS="$G_MAX_NUM_SEQS" \

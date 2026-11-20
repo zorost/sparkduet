@@ -17,6 +17,9 @@ and the house patches are ours.
 - **vLLM** (Apache-2.0), **SGLang**, **FlashInfer**, **NVIDIA** Blackwell /
   CUDA / NCCL tooling, and the **Anemll** `dspark-vllm-gx10` image pin Lane D
   boots (`ghcr.io/anemll/dspark-vllm-gx10:0.1.1`).
+- **TensorFold** (Apache-2.0, github.com/ashhart/TensorFold), the native
+  server the opt-in `G_ENGINE=tensorfold` Lane G engine builds or unpacks
+  unmodified. Its notices travel inside the image.
 - **Brandon M. Music (brandonmusic)**, EXL3/TR3 4bpw of GLM-5.3-Flash
   (`brandonmusic/GLM-5.3-Flash-tr3-4bpw`) under the ShapleyMcg License v1.0.
   Attribution is a condition of that grant. The required notice is in

@@ -204,6 +204,80 @@ Same hop and container names as the NVFP4 lane. Never beside it: one
 - Serve: set `G_ENGINE=exl3`, then `./scripts/sparkduetctl.sh switch glm`
 - Back: `./scripts/sparkduetctl.sh switch depth`
 
+## Swap engine: GLM-5.3-Flash EXL3/TR3 on TensorFold (Lane G, `G_ENGINE=tensorfold`)
+
+Opt-in. The checkpoint, served id, hop and container names of
+`G_ENGINE=exl3`, on a different engine. `G_ENGINE` stays where it is until
+the A/B below says otherwise. Nothing here has booted on the pair yet
+[unverified on chassis].
+
+- Engine: TensorFold's native CUDA server, Apache-2.0
+  (github.com/ashhart/TensorFold). `patches/glm-tensorfold/Dockerfile`
+  builds upstream main at `81de26f6` (`G_TF_SOURCE=git`, the default) or
+  unpacks the `v1.3.0` release archive (`G_TF_SOURCE=release`). No engine
+  patch either way. `81de26f6` reports 1.3.0 but comes after the `v1.3.0`
+  tag. Its changelog lists, as unreleased, programmatic dependent launches
+  along GLM's decode chain and next-turn cache guesses that carry the reply's
+  reasoning. Those are the changes a public two-GB10 recipe announced on
+  2026-11-20. The release archive has neither.
+- Checkpoint: the same `G_EXL3_MODEL`. Upstream's CUDA reader takes this
+  checkpoint's 4-bit mcg-codebook experts, and upstream lists it for two
+  CUDA ranks. Attribution as for the EXL3 lane.
+- Drafts: the checkpoint's MTP head only (`--drafter none`,
+  `TF_GLM_MTP=1`). The entry script refuses anything else. The engine times
+  its own MTP windows at load and picks the depth from them.
+- Why look at it: a Build step on this pair sends a median of 98,052 tokens
+  [M-here, `docs/HARNESS.md`]. That makes prompt reuse and prompt reading
+  matter as much as decode. TensorFold keeps a prompt state per
+  conversation, sets the prompt cache aside before extra stream windows, and
+  reports `prompt_tokens_details.cached_tokens`. Upstream measured, on two
+  GB10 at TP=2 with another 4-bit GLM checkpoint and MTP drafts: a warm turn
+  after 40K tokens of history reached its first token in 1.25 to 3.05 s, and a
+  cold 32K prompt in 23.9 s [M-else].
+- What is not known: upstream marks EXL3 speed "TBD". A public two-GB10
+  recipe on an older engine pin measured MTP drafts at 37.5 tok/s for one
+  stream (greedy prose, thinking off) against 26.6 with no drafts, and fell
+  15 to 18 percent behind that recipe's own drafter at 2 to 4 streams. It ran
+  8-bit dense and head weights,
+  which change replies and which this lane leaves at BF16 [M-else]. No number
+  is claimed for this pair until the A/B below runs.
+- Lane knobs (`G_TF_*` in `configs/sparkduet.env.example`): `--context
+  262144` and `--parallel 4`; fp8 latent KV, as the vLLM EXL3 lane (upstream
+  qualifies only BF16 KV and calls fp8 lossy); a 6 GiB prompt cache;
+  `--max-tokens 16384`; a 12 GiB memory reserve for the house services;
+  `TF_GLM_CLEAR_THINKING=1`; thinking off at the door with no default
+  effort; vision on, video rows capped.
+- End tokens: GLM-5.3 can end a reply with `<|assistant|>`, which the
+  checkpoint's `generation_config.json` leaves out. `sparkduetctl.sh` writes
+  a copy with it added on both Sparks (`scripts/glm_eos_overlay.py`) and the
+  ranks read that copy. The checkpoint is never written.
+- Client-visible differences from the vLLM lane:
+  - A request whose prompt plus `max_tokens` exceeds the window gets HTTP
+    400. The vLLM lane clamps it (`patch_clamp_max_tokens.py`). The 85
+    percent pickers and a 16384 output cap stay clear of it. A client that
+    sends `max_tokens: 9999999` does not.
+  - The GLM template names `low`, `high` and `max`: `medium` is heard as
+    `high` and `minimal` as `low`. Any effort turns thinking on.
+  - Kept prompts resume on a 2,048-row grid, so up to 2,047 trailing tokens
+    are read again each turn.
+- A/B on the pair [unverified on chassis]:
+  1. `scripts/build-tensorfold-image.sh` on the head (builds, then ships the
+     same image id to the worker).
+  2. Baseline: `G_ENGINE=exl3`, `switch glm`, then
+     `python3 scripts/bench.py --model "$G_EXL3_SERVED_NAME" --suite quick`
+     and `--suite spec`.
+  3. `G_ENGINE=tensorfold`, `switch glm`. Check rank 0's startup line (KV
+     pages, prompt cache, no refusal), `GET :30000/v1/models` (`max_model_len`
+     equals `G_TF_CONTEXT`), one tool call, and one reply that stops on its
+     own.
+  4. The same two bench suites, then one OpenCode Build task replayed on each
+     engine: wall time, steps, and `cached_tokens` per step.
+  5. Keep `G_ENGINE=tensorfold` only if the Build replay is faster and the
+     tool call and stop checks pass. Otherwise `G_ENGINE=exl3`, `switch glm`.
+- Serve: build the image, set `G_ENGINE=tensorfold`, then
+  `./scripts/sparkduetctl.sh switch glm`
+- Back: `G_ENGINE=exl3`, `switch glm`; or `switch depth`
+
 ## When the answer is neither
 
 | Situation | Better answer |
@@ -221,7 +295,8 @@ Same hop and container names as the NVFP4 lane. Never beside it: one
   `switch next`, then A/B against depth before changing the default.
 - Want GLM-5.3-Flash (vision, MIT, 18B active) on the same pair → **Lane G**,
   `switch glm`. `G_ENGINE=vllm` is NVFP4; `G_ENGINE=exl3` is the quality-per-byte
-  checkpoint the Lab pair runs. Then A/B against depth.
+  checkpoint the Lab pair runs; `G_ENGINE=tensorfold` is that checkpoint on
+  TensorFold, opt-in until its A/B. Then A/B against depth.
 - Many concurrent agents, mixed prompt sizes → **Qwen3.8-27B or a quantized
   DeepSeek build, Lane F**, one-node-fit models only.
 - Vision-native or Apache-2.0-purist fleet, moderate context → **Qwen3.8-27B, Lane F**.

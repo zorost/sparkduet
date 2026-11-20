@@ -1,0 +1,120 @@
+# Lane G on TensorFold: the native server, TP=2, for GLM-5.3-Flash EXL3/TR3 4bpw.
+# Selected by G_ENGINE=tensorfold. G_ENGINE=exl3 keeps lane-glm-exl3.compose.yml
+# (vLLM) and G_ENGINE=vllm keeps lane-glm.compose.yml (NVFP4).
+#
+# Same checkpoint, same served id, same :30000 and same container names as the
+# vLLM EXL3 lane, so sparkduetctl.sh, zorost-lane-guard, 9Router and the pickers
+# need no special case. GET /v1/models reports max_model_len as the served
+# window, which is what the pickers clip to.
+#
+# Checkpoint: G_EXL3_MODEL, brandonmusic/GLM-5.3-Flash-tr3-4bpw pinned at
+# 5ab363a8, ShapleyMcg License v1.0. Attribution is a condition of that license:
+# see patches/glm-exl3-sm121/README.md, which carries the required notice.
+# TensorFold's CUDA reader takes this checkpoint's 4-bit mcg-codebook experts
+# with BF16 weights elsewhere.
+#
+# Engine: TensorFold's own release archive (Apache-2.0), unpacked into
+# G_TF_IMAGE by patches/glm-tensorfold/Dockerfile. No engine patches.
+#
+# Drafts: the checkpoint's MTP head only (`--drafter none`, TF_GLM_MTP=1). The
+# entry script refuses anything else. The engine times its own MTP windows at
+# startup and picks the depth from them; the timings steer windows, never
+# tokens.
+#
+# House knobs, so an A/B against lane-glm-exl3 isolates the engine:
+#   * fp8 latent KV, as the vLLM EXL3 lane. TensorFold qualifies BF16 KV only
+#     and calls fp8 lossy; G_TF_KV=bf16 doubles the bytes a token.
+#   * the checkpoint's chat template, thinking off at the door, no default
+#     effort: clients send their own (docs/HARNESS.md).
+#   * TF_GLM_CLEAR_THINKING=1: earlier turns' reasoning before the last user
+#     message leaves the prompt, as the TR3 template does by default and as
+#     the vLLM lane renders it.
+#   * dense and head layers stay BF16 (exact). Lower dense bits are faster and
+#     change replies; that is an A/B question, not a default.
+#   * TENSORFOLD_MEMORY_RESERVE_GIB=12: the engine budgets from MemAvailable,
+#     and the house Sparks also run the gateway stack and, on Spark 2, Comfy
+#     and the desktop. Lower it only on a bare pair.
+#
+# GLM-5.3 can end a reply with <|assistant|>, which the checkpoint's
+# generation_config.json leaves out. sparkduetctl writes a copy with that id
+# added (scripts/glm_eos_overlay.py, G_TF_EXTRA_EOS) into G_TF_STATE_DIR on
+# both Sparks before start, and both ranks read it over the original.
+#
+# [unverified on chassis] Written and checked on a build VM. Nothing here has
+# booted on the pair yet.
+
+x-glm-tf-common: &glm-tf-common
+  image: ${G_TF_IMAGE}
+  entrypoint: ["/sparkduet-patches/glm-tensorfold-entry.sh"]
+  network_mode: host
+  # A lone rank cannot serve TP=2. Pair restarts only, via sparkduetctl.sh or
+  # zorost-lane-guard.
+  restart: "no"
+  ipc: host
+  shm_size: 16gb
+  devices:
+    - /dev/infiniband:/dev/infiniband
+  cap_add:
+    - IPC_LOCK
+  ulimits:
+    memlock: -1
+    stack: 67108864
+  volumes:
+    - ${G_EXL3_MODEL}:/model:ro
+    - ${G_TF_STATE_DIR:-/srv/ai/cache/tensorfold}/generation_config.json:/model/generation_config.json:ro
+    - ${G_TF_STATE_DIR:-/srv/ai/cache/tensorfold}:/state
+    - ../patches:/sparkduet-patches:ro
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - capabilities: ["gpu"]
+  command: >
+    --name ${G_EXL3_SERVED_NAME}
+    --host ${G_HOST}
+    --port ${G_PORT}
+    --context ${G_TF_CONTEXT}
+    --parallel ${G_TF_PARALLEL}
+    --kv-cache ${G_TF_KV}
+    --prompt-cache-gib ${G_TF_PROMPT_CACHE_GIB}
+    --max-tokens ${G_TF_MAX_TOKENS}
+    --no-thinking
+    --drafter none
+    --vision
+    --vision-video-tokens 64
+    --no-update-check
+
+x-glm-tf-env: &glm-tf-env
+  HOME: /state/home
+  HF_HUB_OFFLINE: "1"
+  CUDA_DEVICE_ORDER: PCI_BUS_ID
+  TF_GLM_WORLD: "2"
+  TF_GLM_MTP: "1"
+  TF_GLM_CLEAR_THINKING: "${G_TF_CLEAR_THINKING:-1}"
+  TENSORFOLD_MEMORY_RESERVE_GIB: "${G_TF_MEMORY_RESERVE_GIB:-12}"
+  NCCL_COMM_ID: ${MASTER_ADDR}:${MASTER_PORT}
+  NCCL_SOCKET_IFNAME: ${NCCL_SOCKET_IFNAME}
+  NCCL_IB_HCA: ${NCCL_IB_HCA}
+  NCCL_IB_GID_INDEX: "${NCCL_IB_GID_INDEX}"
+  TF_ROCE_HCA: ${NCCL_IB_HCA}
+
+services:
+  glm-head:
+    <<: *glm-tf-common
+    container_name: sparkduet-glm-head
+    environment:
+      <<: *glm-tf-env
+      TF_GLM_RANK: "0"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${G_PORT}/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 40
+      start_period: 3600s
+
+  glm-worker:
+    <<: *glm-tf-common
+    container_name: sparkduet-glm-worker
+    environment:
+      <<: *glm-tf-env
+      TF_GLM_RANK: "1"

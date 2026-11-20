@@ -99,6 +99,19 @@ Chat, not a 200-step agent. This repo ships no WebUI config.
 - Legacy function calling rewrites the prompt each turn and breaks the prefix
   cache. Use Native.
 
+## If Lane G runs on TensorFold
+
+`G_ENGINE=tensorfold` is opt-in (`docs/MODELS.md`). The rules above hold.
+Three things change for clients:
+
+- Prompt plus `max_tokens` past the window is HTTP 400, not a clamp. Keep
+  the 85 percent context and 16384 output limits. Never send `9999999`.
+- Effort maps to the template's `low`, `high` and `max`: Hermes' default
+  `medium` arrives as `high`. Any effort turns thinking on.
+- Each conversation keeps its own prompt state. Keep one session's effort
+  fixed, and do not interleave many short chats with a long Build run: kept
+  states share the 6 GiB prompt cache, least recently used out first.
+
 ## Reviewed and not adopted
 
 Public GB10 recipes for this checkpoint family were read on 2026-11-18.
@@ -106,6 +119,12 @@ Their native-MTP settings agree with the tracked lane, so the serving recipe
 is unchanged: see `docs/MODELS.md`. `chat_template_kwargs.clear_thinking`
 for multi-turn agents is reported to shorten prompts [M-else]; it waits for a
 measurement on this pair.
+
+On 2026-11-20 a public two-GB10 TensorFold recipe announced faster decode,
+fewer patches and a smarter prompt cache. Its headline speeds use an external
+drafter whose license is non-commercial, 8-bit dense and head weights and its
+own engine patches; none of those are adopted. What it credits to upstream TensorFold is adopted as the
+opt-in `G_ENGINE=tensorfold` engine above.
 
 ## Still to verify on Spark 1
 
@@ -139,3 +158,8 @@ build VM; GitHub copies were read instead.
 6. github.com/evanwtf/local-llm issues 329, 330, 333, 334.
 7. Six public GB10 serving recipes for GLM-5.3-Flash EXL3, read for serving
    flags and client advice. This repo does not name other recipe authors.
+8. TensorFold at `81de26f6`, github.com/ashhart/TensorFold, read on
+   2026-11-20: `README.md`, `RUNBOOK.md`, `CHANGELOG.md`, `build.zig.zon`,
+   `docs/run-guide.md`, `docs/api.md`, `docs/supported-models.md`,
+   `docs/recipes/glm-5.3-flash.md`, `docs/recipes/glm-5.3-flash-cuda.md`; and
+   the `v1.3.0` `linux-aarch64` release archive and its `RUNTIME.md`.

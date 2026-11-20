@@ -77,3 +77,13 @@ and applied from there. A missing file is a hard failure.
 
 Weights are ShapleyMcg License v1.0. Attribution is required; the notice
 is in `glm-exl3-sm121/README.md`.
+
+## Lane G on TensorFold (G_ENGINE=tensorfold, opt-in)
+
+No engine patch. `glm-tensorfold/Dockerfile` builds TensorFold (Apache-2.0)
+from upstream main at a pinned commit, or unpacks its pinned `v1.3.0`
+release archive, and adds NCCL 2.30.7 and the RDMA runtime.
+`glm-tensorfold-entry.sh` checks the rank's placement and refuses any
+drafter but the checkpoint's MTP head before `tensorfold-native serve`.
+`scripts/glm_eos_overlay.py` writes the end-token overlay both ranks mount.
+See `glm-tensorfold/README.md`. Same weights and attribution as the EXL3 lane.
