@@ -47,6 +47,9 @@ jobs:
       - name: harness template tests
         run: python3 scripts/test_harness_config.py
 
+      - name: engine A/B probe tests
+        run: python3 scripts/test_ab_probe.py
+
       - name: diagrams are valid XML
         run: |
           python3 - <<'PY'
