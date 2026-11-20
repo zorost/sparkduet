@@ -23,13 +23,10 @@
 #   docker build -t sparkduet-tensorfold:1.3.0 patches/glm-tensorfold
 #   docker build --build-arg TF_SOURCE=release -t sparkduet-tensorfold:1.3.0-release patches/glm-tensorfold
 #
-# [unverified on chassis] Neither source has been built on a Spark. The CUDA
-# base tags were not pulled from the build VM: pin them by digest after the
-# first pull on the head.
-
+# CUDA bases pinned to the RepoDigests pulled on Spark 1, 2026-11-20.
 ARG TF_SOURCE=git
-ARG CUDA_RUNTIME=nvidia/cuda:13.0.1-runtime-ubuntu24.04
-ARG CUDA_DEVEL=nvidia/cuda:13.0.1-devel-ubuntu24.04
+ARG CUDA_RUNTIME=nvidia/cuda:13.0.1-runtime-ubuntu24.04@sha256:c3fde347d52d578c84fd644bc177bc7ec333feaf11550d990da4084d7612e4c7
+ARG CUDA_DEVEL=nvidia/cuda:13.0.1-devel-ubuntu24.04@sha256:7d2f6a8c2071d911524f95061a0db363e24d27aa51ec831fcccf9e76eb72bc92
 
 # ---- engine from upstream main at a pinned commit ---------------------------
 FROM ${CUDA_DEVEL} AS engine-git
