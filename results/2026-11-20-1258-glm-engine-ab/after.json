@@ -1,0 +1,20 @@
+{
+  "label": "tensorfold",
+  "model": "brandonmusic/GLM-5.3-Flash-EXL3-TR3-4bpw",
+  "base_url": "http://127.0.0.1:30000/v1",
+  "date_utc": "2026-11-20T13:31:47Z",
+  "ready_s": 389.0,
+  "window": 262144,
+  "decode_code_tps": 35.31,
+  "decode_prose_tps": 27.05,
+  "aggregate4_tps": 46.47,
+  "prompt_tokens": 28452,
+  "cold_ttft_s": 21.19,
+  "cold_prefill_tps": 1342.8,
+  "warm_ttft_s": 1.49,
+  "warm_prompt_tokens": 28497,
+  "warm_cached_tokens": 26624,
+  "tool_call_ok": true,
+  "stops_ok": true,
+  "probe_s": 170.0
+}

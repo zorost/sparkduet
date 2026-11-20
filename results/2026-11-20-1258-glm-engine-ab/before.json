@@ -1,0 +1,20 @@
+{
+  "label": "exl3",
+  "model": "brandonmusic/GLM-5.3-Flash-EXL3-TR3-4bpw",
+  "base_url": "http://127.0.0.1:30000/v1",
+  "date_utc": "2026-11-20T13:21:30Z",
+  "ready_s": 943.0,
+  "window": 1000000,
+  "decode_code_tps": 30.28,
+  "decode_prose_tps": 19.04,
+  "aggregate4_tps": 29.74,
+  "prompt_tokens": 28450,
+  "cold_ttft_s": 19.99,
+  "cold_prefill_tps": 1423.2,
+  "warm_ttft_s": 2.58,
+  "warm_prompt_tokens": 28495,
+  "warm_cached_tokens": null,
+  "tool_call_ok": true,
+  "stops_ok": true,
+  "probe_s": 228.1
+}

@@ -207,9 +207,8 @@ Same hop and container names as the NVFP4 lane. Never beside it: one
 ## Swap engine: GLM-5.3-Flash EXL3/TR3 on TensorFold (Lane G, `G_ENGINE=tensorfold`)
 
 Opt-in. The checkpoint, served id, hop and container names of
-`G_ENGINE=exl3`, on a different engine. `G_ENGINE` stays where it is until
-the A/B below says otherwise. Nothing here has booted on the pair yet
-[unverified on chassis].
+`G_ENGINE=exl3`, on a different engine. `G_ENGINE` stays `exl3`.
+On 2026-11-20 the pair ran the A/B and did not adopt tensorfold [M-here]: the served window shrank from 1000000 to 262144. Table: `results/2026-11-20-1258-glm-engine-ab/README.md`.
 
 - Engine: TensorFold's native CUDA server, Apache-2.0
   (github.com/ashhart/TensorFold). `patches/glm-tensorfold/Dockerfile`
@@ -296,7 +295,7 @@ the A/B below says otherwise. Nothing here has booted on the pair yet
 - Want GLM-5.3-Flash (vision, MIT, 18B active) on the same pair → **Lane G**,
   `switch glm`. `G_ENGINE=vllm` is NVFP4; `G_ENGINE=exl3` is the quality-per-byte
   checkpoint the Lab pair runs; `G_ENGINE=tensorfold` is that checkpoint on
-  TensorFold, opt-in until its A/B. Then A/B against depth.
+  TensorFold, still opt-in after the 2026-11-20 A/B kept exl3. Then A/B against depth.
 - Many concurrent agents, mixed prompt sizes → **Qwen3.8-27B or a quantized
   DeepSeek build, Lane F**, one-node-fit models only.
 - Vision-native or Apache-2.0-purist fleet, moderate context → **Qwen3.8-27B, Lane F**.
